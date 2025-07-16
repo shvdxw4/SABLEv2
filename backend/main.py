@@ -1,7 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
 from passlib.context import CryptContext
+import jwt
+from datetime import datetime, timedelta
 
+#Schemas
 class UserCreate(BaseModel):
     username: str
     email: str
@@ -11,6 +14,7 @@ class UserOut(BaseModel):
     username: str
     email: str
 
+#Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str):
@@ -19,8 +23,33 @@ def hash_password(password: str):
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
+#Fake DB
 users_db = []
 
+#JWT setup
+SECRET_KEY = "SHADOW_SUPREME_SECRET" #Use env var in production!
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def decode_access_token(token: str):
+    print("TOKEN RECEIVED FOR DECODE:", token)
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        print("DECODED PAYLOAD:", payload)
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+#FastAPI app
 app = FastAPI()
 
 @app.get("/")
@@ -42,7 +71,24 @@ def login(user: UserCreate):
     for u in users_db:
         if u["username"] == user.username:
             if verify_password(user.password, u["password"]):
-                return {"message": "Login successful", "token": "fake-jwt-for-now"}
+                token_data = {"sub": u["username"], "email": u["email"]}
+                access_token = create_access_token(token_data)
+                print("ACCESS TOKEN (generated):", access_token)
+                return {"message": "Login successful", "token": access_token}
             else:
                 break
     raise HTTPException(status_code=400, detail="Invalid credentials")
+
+@app.get("/whoami")
+def whoami(authorization: str = Header(None)):
+    print("RAW AUTH HEADER:", authorization)
+    if not authorization or not authorization.startswith("Bearer "):
+        print("Missing or invalid header")
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    token = authorization.split(" ")[1]
+    print("TOKEN EXTRACTED:", token)
+    payload = decode_access_token(token)
+    if not payload:
+        print("Invalid or expired token!")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return {"user": payload["sub"], "email": payload.get("email")}

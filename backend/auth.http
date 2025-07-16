@@ -1,0 +1,21 @@
+### Signup user
+POST http://localhost:8000/signup
+Content-Type: application/json
+
+{
+  "username": "shadow",
+  "email": "shadow@example.com",
+  "password": "supersecret"
+}
+
+###
+
+### Login user
+POST http://localhost:8000/login
+Content-Type: application/json
+
+{
+  "username": "shadow",
+  "email": "shadow@example.com",
+  "password": "supersecret"
+}
