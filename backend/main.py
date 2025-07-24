@@ -1,8 +1,10 @@
 from fastapi import FastAPI, HTTPException, Header
+from audio.audio_routes import router as audio_router
 from pydantic import BaseModel
 from passlib.context import CryptContext
 import jwt
 from datetime import datetime, timedelta
+
 
 #Schemas
 class UserCreate(BaseModel):
@@ -51,6 +53,8 @@ def decode_access_token(token: str):
 
 #FastAPI app
 app = FastAPI()
+
+app.include_router(audio_router)
 
 @app.get("/")
 def root():
