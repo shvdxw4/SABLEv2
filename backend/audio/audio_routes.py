@@ -1,5 +1,6 @@
 import os
 from fastapi import APIRouter, UploadFile, File, HTTPException, Path
+from fastapi.responses import FileResponse, StreamingResponse
 from pydub import AudioSegment
 import matplotlib.pyplot as plt
 import numpy as np
@@ -88,3 +89,23 @@ def delete_audio_file(filename: str = Path(..., description="Name of the audio f
         return {"message": f"{filename} deleted successfully"}
     else:
         raise HTTPException(status_code=404, detail="File not found")
+    
+@router.get("/audio/{filename}/waveform")
+def get_waveform_image(filename: str):
+    name_no_ext = filename.rsplit('.', 1)[0]
+    path = os.path.join(WAVEFORM_DIR, f"{name_no_ext}.png")
+    if os.path.exists(path):
+        return FileResponse(path, media_type="image/png")
+    else:
+        raise HTTPException(status=404, detail="Waveform image not found")
+    
+@router.get("/audio/{filename}/stream")
+def stream_audio_file(filename: str):
+    path = os.path.join(AUDIO_DIR, filename)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Audio file not found")
+    ext = filename.rsplit('.', 1)[-1].lower()
+    media_type = f"audio/{ext}" if ext in ("mp3", "wav") else "application/octet-stream"
+    file = open(path, "rb")
+    headers = {"Content-Disposition": f'inline; filename="{filename}"'}
+    return FileResponse(path, media_type=media_type, filename=filename, headers=headers)
