@@ -1,16 +1,18 @@
 import os
-from fastapi import APIRouter, UploadFile, File, HTTPException, Path
+from fastapi import APIRouter, UploadFile, File, HTTPException, Path, Body
 from fastapi.responses import FileResponse, StreamingResponse
 from pydub import AudioSegment
 import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime 
+from typing import List, Optional
 
 router = APIRouter()
 
 AUDIO_DIR = "audio"
 WAVEFORM_DIR = "waveforms"
 ALLOWED_EXTS = {"mp3", "wav"}
+audio_tags = {}
 
 os.makedirs(AUDIO_DIR, exist_ok=True)
 os.makedirs(WAVEFORM_DIR, exist_ok=True)
@@ -109,3 +111,42 @@ def stream_audio_file(filename: str):
     file = open(path, "rb")
     headers = {"Content-Disposition": f'inline; filename="{filename}"'}
     return FileResponse(path, media_type=media_type, filename=filename, headers=headers)
+
+@router.patch("/audio/{filename}/edit")
+def edit_auto_metadata(
+    filename: str,
+    new_filename: Optional[str] = Body(None),
+    tags: Optional[List[str]] = Body(None)
+):
+    audio_path = os.path.join(AUDIO_DIR, filename)
+    waveform_path = os.path.join(WAVEFORM_DIR, filename.rsplit('.', 1)[0] + ".png")
+
+    if not os.path.exists(audio_path):
+        raise HTTPException(status_code=404, detail="Audio file not found")
+    
+    updated_filename = filename
+    updated_waveform = waveform_path
+
+    #RENAME audio file and waveform image if needed
+    if new_filename:
+        new_audio_path = os.path.join(AUDIO_DIR, new_filename)
+        new_waveform_path = os.path.joing(WAVEFORM_DIR, new_filename.rsplit('.', 1)[0] + ".png")
+        os.renamea(audio_path, new_audio_path)
+        if os.path.exists(waveform_path):
+            os.rename(waveform_path, new_waveform_path)
+        updated_filename = new_filename
+        updated_waveform = new_waveform_path
+        #If tags existed for old name, transfer them
+        if filename in audio_tags:
+            audio_tags[new_filename] = audio_tags.pop(filename)
+
+    #UPDATE tags (in-memory for now)
+    if tags is not None:
+        audio_tags[updated_filename] = tags
+
+    return {
+        "message": "Audio metadata updated",
+        "filename": "updated_filename",
+        "tags": audio_tags.get(updated_filename, []),
+        "waveform_image": updated_waveform
+    }
