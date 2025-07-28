@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, UploadFile, File, HTTPException, Path, Body
+from fastapi import APIRouter, UploadFile, File, Query, HTTPException, Path, Body
 from fastapi.responses import FileResponse, StreamingResponse
 from pydub import AudioSegment
 import matplotlib.pyplot as plt
@@ -57,6 +57,14 @@ async def upload_audio(file: UploadFile = File(...)):
     except Exception as e:
         print("UPLOAD ERROR:", str(e))
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+
+@router.get("/audio/{filename}/download")
+def download_audio_fie(filename: str):
+    audio_path = os.path.join(AUDIO_DIR, filename)
+    if os.path.exists(audio_path):
+        return FileResponse(audio_path, media_type="application/octet-stream", filename=filename, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+    else:
+        raise HTTPException(status_code=404, detail="Audio file not found")
 
 @router.get("/audio/")
 def list_audio_files():
@@ -150,3 +158,20 @@ def edit_auto_metadata(
         "tags": audio_tags.get(updated_filename, []),
         "waveform_image": updated_waveform
     }
+
+@router.get("/audio/search")
+def search_audio_files(q: str = Query(..., description="Search by filename or tag")):
+    results = []
+    for fname in os.listdir(AUDIO_DIR):
+        #Skip non-audio files just in case
+        if not fname.endswith((".mp3", ".wav")):
+            continue
+        tags = audio_tags.get(fname, [])
+        if q.lower() in fname.lower() or any(q.lower() in tag.lower() for tag in tags):
+            results.append({
+                "filename": fname,
+                "tags": tags,
+            })
+    if not results:
+        raise HTTPException(status_code=404, detail="No matching audio files found")
+    return {"results": results}
