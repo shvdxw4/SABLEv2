@@ -1,4 +1,4 @@
-import os
+import os, json
 from fastapi import APIRouter, UploadFile, File, Query, HTTPException, Path, Body
 from fastapi.responses import FileResponse, StreamingResponse
 from pydub import AudioSegment
@@ -12,7 +12,19 @@ router = APIRouter()
 AUDIO_DIR = "audio"
 WAVEFORM_DIR = "waveforms"
 ALLOWED_EXTS = {"mp3", "wav"}
-audio_tags = {}
+TAGS_FILE = "tags.json"
+
+def load_tags():
+    if os.path.exists(TAGS_FILE):
+        with open(TAGS_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_tags():
+    with open(TAGS_FILE, "w") as f:
+        json.dump(audio_tags, f)
+
+audio_tags = load_tags()
 
 os.makedirs(AUDIO_DIR, exist_ok=True)
 os.makedirs(WAVEFORM_DIR, exist_ok=True)
@@ -136,9 +148,9 @@ def edit_auto_metadata(
     updated_waveform = waveform_path
 
     #RENAME audio file and waveform image if needed
-    if new_filename:
+    if new_filename and new_filename != filename:
         new_audio_path = os.path.join(AUDIO_DIR, new_filename)
-        new_waveform_path = os.path.joing(WAVEFORM_DIR, new_filename.rsplit('.', 1)[0] + ".png")
+        new_waveform_path = os.path.join(WAVEFORM_DIR, new_filename.rsplit('.', 1)[0] + ".png")
         os.renamea(audio_path, new_audio_path)
         if os.path.exists(waveform_path):
             os.rename(waveform_path, new_waveform_path)
@@ -147,14 +159,16 @@ def edit_auto_metadata(
         #If tags existed for old name, transfer them
         if filename in audio_tags:
             audio_tags[new_filename] = audio_tags.pop(filename)
+        save_tags()
 
     #UPDATE tags (in-memory for now)
     if tags is not None:
         audio_tags[updated_filename] = tags
+        save_tags()
 
     return {
         "message": "Audio metadata updated",
-        "filename": "updated_filename",
+        "filename": updated_filename,
         "tags": audio_tags.get(updated_filename, []),
         "waveform_image": updated_waveform
     }
