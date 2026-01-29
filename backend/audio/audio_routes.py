@@ -9,10 +9,13 @@ from typing import List, Optional
 
 router = APIRouter()
 
-AUDIO_DIR = "audio"
-WAVEFORM_DIR = "waveforms"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BACKEND_DIR = os.path.dirname(BASE_DIR)
+
+AUDIO_DIR = os.path.join(BACKEND_DIR, "audio")
+WAVEFORM_DIR = os.path.join(BACKEND_DIR, "waveforms")
 ALLOWED_EXTS = {"mp3", "wav"}
-TAGS_FILE = "tags.json"
+TAGS_FILE = os.path.join(BACKEND_DIR, "tags.json")
 
 def load_tags():
     if os.path.exists(TAGS_FILE):
@@ -119,7 +122,7 @@ def get_waveform_image(filename: str):
     if os.path.exists(path):
         return FileResponse(path, media_type="image/png")
     else:
-        raise HTTPException(status=404, detail="Waveform image not found")
+        raise HTTPException(status_code=404, detail="Waveform image not found")
     
 @router.get("/audio/{filename}/stream")
 def stream_audio_file(filename: str):
@@ -151,7 +154,7 @@ def edit_auto_metadata(
     if new_filename and new_filename != filename:
         new_audio_path = os.path.join(AUDIO_DIR, new_filename)
         new_waveform_path = os.path.join(WAVEFORM_DIR, new_filename.rsplit('.', 1)[0] + ".png")
-        os.renamea(audio_path, new_audio_path)
+        os.rename(audio_path, new_audio_path)
         if os.path.exists(waveform_path):
             os.rename(waveform_path, new_waveform_path)
         updated_filename = new_filename
@@ -189,3 +192,7 @@ def search_audio_files(q: str = Query(..., description="Search by filename or ta
     if not results:
         raise HTTPException(status_code=404, detail="No matching audio files found")
     return {"results": results}
+
+@router.get("/health")
+def health_check():
+    return {"status": "ok", "message": "SABLE backend is healthy"}
