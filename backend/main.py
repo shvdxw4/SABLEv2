@@ -2,12 +2,12 @@ from fastapi import FastAPI, HTTPException, Header
 from audio.audio_routes import router as audio_router
 from pydantic import BaseModel
 from passlib.context import CryptContext
-import jwt
+import os, jwt
 from datetime import datetime, timedelta
 
 
 #Schemas
-class UserCreate(BaseModel):
+class UserLogin(BaseModel):
     username: str
     password: str
 
@@ -27,7 +27,7 @@ def verify_password(plain_password, hashed_password):
 users_db = []
 
 #JWT setup
-SECRET_KEY = "SHADOW_SUPREME_SECRET" #Use env var in production!
+SECRET_KEY = os.getenv("SABLE_SECRET_KEY", "dev-secret-change-me") #Use env var in production!
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -59,7 +59,7 @@ def root():
     return {"message": "SABLE backend online"}
 
 @app.post("/signup", response_model=UserOut)
-def signup(user: UserCreate):
+def signup(user: UserLogin):
     for u in users_db:
         if u["username"] == user.username or u["email"] == user.email:
             raise HTTPException(status_code=400, detail="User already exists")
