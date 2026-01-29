@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 #Schemas
 class UserCreate(BaseModel):
     username: str
-    email: str
     password: str
 
 class UserOut(BaseModel):
@@ -18,7 +17,6 @@ class UserOut(BaseModel):
 
 #Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 def hash_password(password: str):
     return pwd_context.hash(password)
 
@@ -71,7 +69,7 @@ def signup(user: UserCreate):
     return UserOut(**user_dict)
 
 @app.post("/login")
-def login(user: UserCreate):
+def login(user: UserLogin):
     for u in users_db:
         if u["username"] == user.username:
             if verify_password(user.password, u["password"]):
