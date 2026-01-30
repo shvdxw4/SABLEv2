@@ -1,0 +1,19 @@
+# Generated uploads / waveforms (do not commit)
+backend/audio/*.mp3
+backend/waveforms/*.png
+backend/audio/*.wav
+backend/waveforms/*.jpg
+backend/waveforms/*.jpeg
+
+# Generated media
+audio/*.mp3
+audio/*.wav
+waveforms/*.png
+waveforms/*.jpg
+waveforms/*.jpeg
+
+# Optional: if we ever dump lots of artifacts
+backend/audio/*
+backend/waveforms/*
+!backend/audio/.gitkeep
+!backend/waveforms/.gitkeep
