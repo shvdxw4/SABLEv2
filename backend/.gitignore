@@ -4,6 +4,7 @@ backend/waveforms/*.png
 backend/audio/*.wav
 backend/waveforms/*.jpg
 backend/waveforms/*.jpeg
+tags.json
 
 # Generated media
 audio/*.mp3
