@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Header
+from fastapi.middleware.cors import CORSMiddleware
 from audio.audio_routes import router as audio_router
 from pydantic import BaseModel
 from passlib.context import CryptContext
@@ -51,6 +52,15 @@ def decode_access_token(token: str):
 
 #FastAPI app
 app = FastAPI()
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[FRONTEND_ORIGIN],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(audio_router)
 
