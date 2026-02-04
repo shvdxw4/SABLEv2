@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { NavLink, Route, Routes } from "react-router-dom"
+import { API_BASE_URL } from './config'
 import Landing from "./pages/Landing"
 import Upload from "./pages/Upload"
 import Library from "./pages/Library"
