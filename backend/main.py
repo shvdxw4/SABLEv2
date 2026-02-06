@@ -52,11 +52,16 @@ def decode_access_token(token: str):
 
 #FastAPI app
 app = FastAPI()
-FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+FRONTEND_ORIGINS = os.getenv(
+    "FRONTEND_ORIGINS",
+    "http://localhost:5173,https://your-frontend-domain.com"
+).split(",")
+
+FRONTEND_ORIGINS = [o.strip() for o in FRONTEND_ORIGINS if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_ORIGIN],
+    allow_origins=FRONTEND_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

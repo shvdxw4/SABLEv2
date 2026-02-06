@@ -16,6 +16,7 @@ AUDIO_DIR = os.path.join(BACKEND_DIR, "audio")
 WAVEFORM_DIR = os.path.join(BACKEND_DIR, "waveforms")
 ALLOWED_EXTS = {"mp3", "wav"}
 TAGS_FILE = os.path.join(BACKEND_DIR, "tags.json")
+WAVEFORM_ENABLED = os.getenv("SABLE_WAVEFORM_ENABLED", "true").lower() == "true"
 
 def load_tags():
     if os.path.exists(TAGS_FILE):
@@ -48,19 +49,21 @@ async def upload_audio(file: UploadFile = File(...)):
             f.write(await file.read())
 
         #Load with pydub and get waveform data
+        waveform_path = None
         audio = AudioSegment.from_file(audio_path)
-        samples = audio.get_array_of_samples()
-        arr = np.array(samples)
         duration = round(audio.duration_seconds, 2)
 
         #Generate and save waveforms image
-        plt.figure(figsize=(8,2))
-        plt.plot(arr, color='purple')
-        plt.axis('off')
-        waveform_name = save_name.replace(f".{ext}", ".png")
-        waveform_path = os.path.join(WAVEFORM_DIR, waveform_name)
-        plt.savefig(waveform_path, bbox_inches='tight', pad_inches=0)
-        plt.close()
+        if WAVEFORM_ENABLED:
+            samples = audio.get_array_of_samples()
+            arr = np.array(samples)
+            plt.figure(figsize=(8,2))
+            plt.plot(arr, color='purple')
+            plt.axis('off')
+            waveform_name = save_name.replace(f".{ext}", ".png")
+            waveform_path = os.path.join(WAVEFORM_DIR, waveform_name)
+            plt.savefig(waveform_path, bbox_inches='tight', pad_inches=0)
+            plt.close()
 
         return {
             "filename": save_name,
