@@ -10,6 +10,7 @@ type LibraryState =
 
 export default function Library() {
   const [state, setState] = useState<LibraryState>({ status: "loading" });
+  const [waveOk, setWaveOk] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let alive = true;
@@ -105,11 +106,19 @@ export default function Library() {
                 </div>
 
                 <div className="mt-4 overflow-hidden rounded-xl border border-black/10 dark:border-sable-border">
-                  <img
-                    src={waveformUrl}
-                    alt="waveform"
-                    className="h-20 w-full object-cover"
-                  />
+                  {waveOk[item.filename] === false ? (
+                    <div className="flex h-20 items-center justify-center bg-black/5 text-xs text-black/60 dark:bg-white/5 dark:text-sable-muted">
+                      Waveform unavailable (demo tier)
+                    </div>
+                  ) : (
+                    <img
+                      src={waveformUrl}
+                      alt="waveform"
+                      className="h-20 w-full object-cover"
+                      onError={() => setWaveOk((m) => ({ ...m, [item.filename]: false }))}
+                      onLoad={() => setWaveOk((m) => ({ ...m, [item.filename]: true }))}
+                    />
+                  )}
                 </div>
               </div>
             );
