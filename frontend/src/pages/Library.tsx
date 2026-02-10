@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { fetchAudioList, updateAudioTags, type AudioFile } from "../api/audio";
+import {
+  fetchAudioList,
+  updateAudioTags,
+  deleteAudio,
+  type AudioFile,
+} from "../api/audio";
 import { API_BASE_URL } from "../config";
 
 type LibraryState =
@@ -14,6 +19,8 @@ export default function Library() {
   const [draftTags, setDraftTags] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [saveError, setSaveError] = useState<Record<string, string>>({});
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({});
+  const [deleteError, setDeleteError] = useState<Record<string, string>>({});
   const [waveOk, setWaveOk] = useState<Record<string, boolean>>({});
 
   function tagsToString(tags?: string[]) {
@@ -241,9 +248,59 @@ export default function Library() {
                     )}
                   </div>
 
-                  <audio controls className="w-full md:w-80">
-                    <source src={streamUrl} />
-                  </audio>
+                  <div className="flex w-full flex-col gap-2 md:w-80">
+                    <audio controls className="w-full">
+                      <source src={streamUrl} />
+                    </audio>
+
+                    <button
+                      type="button"
+                      disabled={deleting[item.filename]}
+                      onClick={async () => {
+                        const ok = window.confirm(
+                          `Delete "${item.filename}"? This cannot be undone.`,
+                        );
+                        if (!ok) return;
+
+                        setDeleting((m) => ({ ...m, [item.filename]: true }));
+                        setDeleteError((m) => ({ ...m, [item.filename]: "" }));
+
+                        try {
+                          await deleteAudio(item.filename);
+
+                          // remove from UI
+                          setState((prev) => {
+                            if (prev.status !== "ok") return prev;
+                            const next = prev.items.filter(
+                              (x) => x.filename !== item.filename,
+                            );
+                            return next.length === 0
+                              ? { status: "empty" }
+                              : { status: "ok", items: next };
+                          });
+                        } catch (err: any) {
+                          setDeleteError((m) => ({
+                            ...m,
+                            [item.filename]: err?.message ?? "Failed to delete",
+                          }));
+                        } finally {
+                          setDeleting((m) => ({
+                            ...m,
+                            [item.filename]: false,
+                          }));
+                        }
+                      }}
+                      className="rounded-xl border border-black/15 px-3 py-2 text-sm transition hover:border-black/30 disabled:opacity-50 dark:border-sable-border dark:text-sable-text dark:hover:border-sable-muted"
+                    >
+                      {deleting[item.filename] ? "Deleting…" : "Delete"}
+                    </button>
+
+                    {deleteError[item.filename] && (
+                      <p className="text-xs text-red-600">
+                        {deleteError[item.filename]}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-4 overflow-hidden rounded-xl border border-black/10 dark:border-sable-border">

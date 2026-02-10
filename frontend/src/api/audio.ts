@@ -31,7 +31,7 @@ export async function updateAudioTags(filename: string, tags: string[]) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tags }),
-    }
+    },
   );
 
   if (!res.ok) {
@@ -45,4 +45,18 @@ export async function updateAudioTags(filename: string, tags: string[]) {
     tags: string[];
     waveform_image: string | null;
   }>;
+}
+
+export async function deleteAudio(filename: string) {
+  const res = await fetch(
+    `${API_BASE_URL}/audio/${encodeURIComponent(filename)}`,
+    { method: "DELETE" },
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Failed to delete (${res.status})`);
+  }
+
+  return res.json() as Promise<{ message: string }>;
 }
