@@ -16,6 +16,7 @@ type LibraryState =
 export default function Library() {
   const [state, setState] = useState<LibraryState>({ status: "loading" });
   const [editing, setEditing] = useState<Record<string, boolean>>({});
+  const [query, setQuery] = useState("");
   const [draftTags, setDraftTags] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [saveError, setSaveError] = useState<Record<string, string>>({});
@@ -60,6 +61,21 @@ export default function Library() {
     };
   }, []);
 
+  const filteredItems =
+    state.status === "ok"
+      ? state.items.filter((item) => {
+          const q = query.trim().toLowerCase();
+          if (!q) return true;
+
+          const inName = item.filename.toLowerCase().includes(q);
+          const inTags = (item.tags ?? []).some((t) =>
+            t.toLowerCase().includes(q),
+          );
+
+          return inName || inTags;
+        })
+      : [];
+
   return (
     <div>
       <div className="mb-8">
@@ -67,6 +83,15 @@ export default function Library() {
         <p className="mt-2 text-sm text-black/70 dark:text-sable-muted">
           Your uploaded drafts, pulled live from the backend.
         </p>
+      </div>
+
+      <div className="mt-4">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by filename or tag…"
+          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-black/30 dark:border-sable-border dark:bg-sable-bg dark:text-sable-text dark:focus:border-sable-muted"
+        />
       </div>
 
       {state.status === "loading" && (
@@ -95,9 +120,17 @@ export default function Library() {
         </div>
       )}
 
+      {query.trim() && filteredItems.length === 0 && (
+        <div className="rounded-2xl border border-black/10 bg-white p-6 text-sm dark:border-sable-border dark:bg-sable-panel">
+          <p className="text-black/70 dark:text-sable-muted">
+            No matches for “{query.trim()}”.
+          </p>
+        </div>
+      )}
+
       {state.status === "ok" && (
         <div className="grid gap-4">
-          {state.items.map((item) => {
+          {filteredItems.map((item) => {
             const waveformUrl = `${API_BASE_URL}/audio/${encodeURIComponent(
               item.filename,
             )}/waveform`;
