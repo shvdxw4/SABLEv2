@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
+from app.db import engine
 from app.audio.routes import router 
 from pydantic import BaseModel
 from passlib.context import CryptContext
@@ -72,6 +73,15 @@ app.add_middleware(
 def health():
     return {"status": "ok"}
 
+@app.get("/health/db")
+def health_db():
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql("SELECT 1")
+        return {"db": "ok"}
+    except Exception as e:
+        return {"db": "fail", "error": str(e)}
+
 app.include_router(router, prefix="/audio", tags=["audio"])
 
 @app.get("/")
@@ -114,3 +124,5 @@ def whoami(authorization: str = Header(None)):
         print("Invalid or expired token!")
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return {"user": payload["sub"], "email": payload.get("email")}
+
+    print([r.path for r in app.routes])
