@@ -2,20 +2,28 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from app.db import engine
 from app.audio.routes import router 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import text
 from passlib.context import CryptContext
 import os, jwt
 from datetime import datetime, timedelta
 
 
 #Schemas
-class UserLogin(BaseModel):
-    username: str
+class SignupIn(BaseModel):
+    email: EmailStr
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=8, max_length=128)
+
+class LoginIn(BaseModel):
+    identifier: str  # email OR username
     password: str
 
 class UserOut(BaseModel):
+    id: int
+    email: EmailStr
     username: str
-    email: str
+    role: str
 
 #Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -25,8 +33,6 @@ def hash_password(password: str):
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
-#Fake DB
-users_db = []
 
 #JWT setup
 SECRET_KEY = os.getenv("SABLE_SECRET_KEY", "dev-secret-change-me") #Use env var in production!
@@ -50,6 +56,44 @@ def decode_access_token(token: str):
         return None
     except jwt.InvalidTokenError:
         return None
+
+def get_bearer_token(authorization: str | None) -> str | None:
+    if not authorization:
+        return None
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    return parts[1]
+
+def get_current_user(authorization: str | None):
+    token = get_bearer_token(authorization)
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+
+    payload = decode_access_token(token)
+    if not payload or "sub" not in payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user_id = int(payload["sub"])
+
+    with engine.begin() as conn:
+        user = conn.execute(
+            text("SELECT id, email, username, role FROM users WHERE id = :id LIMIT 1;"),
+            {"id": user_id},
+        ).mappings().first()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return dict(user)
+
+def require_creator(user: dict):
+    if user["role"] != "creator":
+        raise HTTPException(status_code=403, detail="Creator role required")
+
+def require_admin(user: dict):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required")
 
 #FastAPI app
 app = FastAPI(title="SABLE API", version="0.1.0")
@@ -89,40 +133,81 @@ def root():
     return {"message": "SABLE backend online"}
 
 @app.post("/signup", response_model=UserOut)
-def signup(user: UserLogin):
-    for u in users_db:
-        if u["username"] == user.username or u["email"] == user.email:
-            raise HTTPException(status_code=400, detail="User already exists")
-    user_dict = user.dict()
-    user_dict["password"] = hash_password(user.password)
-    users_db.append(user_dict)
-    return UserOut(**user_dict)
+def signup(payload: SignupIn):
+    password_hash = hash_password(payload.password)
+
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(
+                text("""
+                    INSERT INTO users (email, username, password_hash, role)
+                    VALUES (:email, :username, :password_hash, 'subscriber')
+                    RETURNING id, email, username, role;
+                """),
+                {
+                    "email": payload.email,
+                    "username": payload.username,
+                    "password_hash": password_hash,
+                }
+            ).mappings().one()
+
+        return dict(row)
+
+    except Exception as e:
+        # Minimal, but honest. We'll refine error handling after baseline works.
+        raise HTTPException(status_code=400, detail=f"Signup failed: {str(e)}")
 
 @app.post("/login")
-def login(user: UserLogin):
-    for u in users_db:
-        if u["username"] == user.username:
-            if verify_password(user.password, u["password"]):
-                token_data = {"sub": u["username"], "email": u["email"]}
-                access_token = create_access_token(token_data)
-                print("ACCESS TOKEN (generated):", access_token)
-                return {"message": "Login successful", "token": access_token}
-            else:
-                break
-    raise HTTPException(status_code=400, detail="Invalid credentials")
+def login(payload: LoginIn):
+    with engine.begin() as conn:
+        user = conn.execute(
+            text("""
+                SELECT id, email, username, password_hash, role
+                FROM users
+                WHERE email = :identifier OR username = :identifier
+                LIMIT 1;
+            """),
+            {"identifier": payload.identifier}
+        ).mappings().first()
 
-@app.get("/whoami")
-def whoami(authorization: str = Header(None)):
-    print("RAW AUTH HEADER:", authorization)
-    if not authorization or not authorization.startswith("Bearer "):
-        print("Missing or invalid header")
-        raise HTTPException(status_code=401, detail="Missing or invalid token")
-    token = authorization.split(" ")[1]
-    print("TOKEN EXTRACTED:", token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not verify_password(payload.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    token = create_access_token({
+        "sub": str(user["id"]),
+        "role": user["role"],
+    })
+
+    return {"access_token": token, "token_type": "bearer"}
+
+@app.get("/me", response_model=UserOut)
+def me(authorization: str | None = Header(default=None)):
+    token = get_bearer_token(authorization)
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+
     payload = decode_access_token(token)
-    if not payload:
-        print("Invalid or expired token!")
+    if not payload or "sub" not in payload:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    return {"user": payload["sub"], "email": payload.get("email")}
 
-    print([r.path for r in app.routes])
+    user_id = int(payload["sub"])
+
+    with engine.begin() as conn:
+        user = conn.execute(
+            text("""
+                SELECT id, email, username, role
+                FROM users
+                WHERE id = :id
+                LIMIT 1;
+            """),
+            {"id": user_id}
+        ).mappings().first()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return dict(user)
+

@@ -1,18 +1,23 @@
-print("Running migration script...")
-
 from pathlib import Path
 from sqlalchemy import text
-
 from app.db import engine
 
+
 def main() -> None:
-    migration_path = Path(__file__).resolve().parents[1] / "migrations" / "001_init.sql"
-    sql = migration_path.read_text(encoding="utf-8")
+    migrations_dir = Path(__file__).resolve().parents[1] / "migrations"
+    migration_files = sorted(migrations_dir.glob("*.sql"))
 
-    with engine.begin() as conn:
-        conn.execute(text(sql))
+    for migration_path in migration_files:
+        sql = migration_path.read_text(encoding="utf-8")
+        if not sql.strip():
+            continue
 
-    print("✅ Applied migration: 001_init.sql")
+        print(f"Applying {migration_path.name}...")
+        with engine.begin() as conn:
+            conn.execute(text(sql))
+
+    print("✅ All migrations applied.")
+
 
 if __name__ == "__main__":
     main()
