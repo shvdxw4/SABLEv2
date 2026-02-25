@@ -4,6 +4,7 @@ from app.db import engine
 from app.audio.routes import router 
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import text
+from app.s3 import presign_put, presign_get
 from passlib.context import CryptContext
 import os, jwt
 from datetime import datetime, timedelta
