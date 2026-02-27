@@ -19,7 +19,7 @@ def _s3_client():
         config=Config(signature_version="s3v4")
     )
 
-def presign_put(key: str, content_type: str, expires_sec: int = 300) -> str:
+def presign_put(key: str, content_type: str, expires_sec: int = 900) -> str:
     s3 = _s3_client()
     bucket = os.getenv("SABLE_S3_BUCKET")
     return s3.generate_presigned_url(
@@ -28,7 +28,7 @@ def presign_put(key: str, content_type: str, expires_sec: int = 300) -> str:
         ExpiresIn=expires_sec,
     )
 
-def presign_get(key: str, expires_sec: int = 300) -> str:
+def presign_get(key: str, expires_sec: int = 900) -> str:
     s3 = _s3_client()
     bucket = os.getenv("SABLE_S3_BUCKET")
     return s3.generate_presigned_url(
