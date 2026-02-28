@@ -149,6 +149,44 @@ def _validate_artwork_ext(ext: str) -> None:
     if ext not in allowed:
         raise HTTPException(status_code=400, detail=f"Unsupported artwork_ext: {ext}")
 
+def get_current_user_optional(authorization: str | None):
+    if not authorization:
+        return None
+    try:
+        return get_current_user(authorization)
+    except HTTPException:
+        return None
+
+def has_active_subscription(user_id: int) -> bool:
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("""
+                SELECT status, expires_at
+                FROM subscriptions
+                WHERE user_id = :uid
+                LIMIT 1;
+            """),
+            {"uid": user_id},
+        ).mappings().first()
+
+    if not row:
+        return False
+
+    status = (row["status"] or "").upper()
+    if status != "ACTIVE":
+        return False
+
+    # If expires_at is set and in the past, treat as inactive
+    exp = row["expires_at"]
+    if exp is not None:
+        # DB returns a datetime; compare at DB level would be nicer later, but this is fine for Tier-1
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        if exp <= now:
+            return False
+
+    return True
+
 #FastAPI app
 app = FastAPI(title="SABLE API", version="0.1.0")
 
@@ -490,3 +528,98 @@ def remove_track(track_id: int, authorization: str | None = Header(default=None)
             )
 
     return {"ok": True, "track_id": track_id, "state": TRACK_STATE_REMOVED}
+
+@app.get("/tracks")
+def list_tracks(authorization: str | None = Header(default=None)):
+    user = get_current_user_optional(authorization)
+    include_subscriber = False
+
+    if user:
+        include_subscriber = has_active_subscription(int(user["id"]))
+
+    tiers = [TRACK_TIER_PUBLIC]
+    if include_subscriber:
+        tiers.append(TRACK_TIER_SUBSCRIBER)
+
+    with engine.begin() as conn:
+        rows = conn.execute(
+            text("""
+                SELECT t.id, t.title, t.tier, t.state, t.creator_id, t.published_at
+                FROM tracks t
+                WHERE t.state = :published
+                  AND t.tier = ANY(:tiers)
+                ORDER BY t.published_at DESC NULLS LAST, t.id DESC
+                LIMIT 50;
+            """),
+            {"published": TRACK_STATE_PUBLISHED, "tiers": tiers},
+        ).mappings().all()
+
+    # Minimal response for Tier-1 browse
+    return {"items": [dict(r) for r in rows], "include_subscriber": include_subscriber}
+
+@app.get("/tracks/{track_id}")
+def get_track(track_id: int, authorization: str | None = Header(default=None)):
+    user = get_current_user_optional(authorization)
+    include_subscriber = False
+    if user:
+        include_subscriber = has_active_subscription(int(user["id"]))
+
+    tiers = [TRACK_TIER_PUBLIC]
+    if include_subscriber:
+        tiers.append(TRACK_TIER_SUBSCRIBER)
+
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("""
+                SELECT t.id, t.title, t.tier, t.state, t.creator_id, t.published_at,
+                       t.artwork_s3_key
+                FROM tracks t
+                WHERE t.id = :id
+                  AND t.state = :published
+                  AND t.tier = ANY(:tiers)
+                LIMIT 1;
+            """),
+            {"id": track_id, "published": TRACK_STATE_PUBLISHED, "tiers": tiers},
+        ).mappings().first()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Track not found")
+
+        tags = [r[0] for r in conn.execute(
+            text("SELECT tag FROM track_tags WHERE track_id=:id ORDER BY tag;"),
+            {"id": track_id},
+        ).all()]
+
+    return {**dict(row), "tags": tags}
+
+from app.s3 import presign_get
+
+@app.get("/tracks/{track_id}/stream")
+def stream_track(track_id: int, authorization: str | None = Header(default=None)):
+    user = get_current_user_optional(authorization)
+    include_subscriber = False
+    if user:
+        include_subscriber = has_active_subscription(int(user["id"]))
+
+    tiers = [TRACK_TIER_PUBLIC]
+    if include_subscriber:
+        tiers.append(TRACK_TIER_SUBSCRIBER)
+
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("""
+                SELECT audio_s3_key
+                FROM tracks
+                WHERE id = :id
+                  AND state = :published
+                  AND tier = ANY(:tiers)
+                LIMIT 1;
+            """),
+            {"id": track_id, "published": TRACK_STATE_PUBLISHED, "tiers": tiers},
+        ).mappings().first()
+
+        if not row or not row["audio_s3_key"]:
+            raise HTTPException(status_code=404, detail="Track not found")
+
+    url = presign_get(row["audio_s3_key"], expires_sec=300)
+    return {"url": url}
