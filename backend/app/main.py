@@ -9,6 +9,8 @@ from passlib.context import CryptContext
 import os, jwt
 from datetime import datetime, timedelta
 from typing import Optional, List
+from dotenv import load_dotenv
+import stripe 
 
 #Schemas
 class SignupIn(BaseModel):
@@ -57,6 +59,9 @@ class CreatorTrackOut(BaseModel):
 
 class PublishIn(BaseModel):
     tier: str
+
+class BillingCheckoutIn(BaseModel):
+    plan: str
 
 #Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -186,6 +191,15 @@ def has_active_subscription(user_id: int) -> bool:
             return False
 
     return True
+
+load_dotenv()
+
+def _stripe():
+    key = os.getenv("STRIPE_SECRET_KEY")
+    if not key:
+        raise RuntimeError("STRIPE_SECRET_KEY is not set")
+    stripe.api_key = key
+    return stripe
 
 #FastAPI app
 app = FastAPI(title="SABLE API", version="0.1.0")
@@ -592,8 +606,6 @@ def get_track(track_id: int, authorization: str | None = Header(default=None)):
 
     return {**dict(row), "tags": tags}
 
-from app.s3 import presign_get
-
 @app.get("/tracks/{track_id}/stream")
 def stream_track(track_id: int, authorization: str | None = Header(default=None)):
     user = get_current_user_optional(authorization)
@@ -623,3 +635,80 @@ def stream_track(track_id: int, authorization: str | None = Header(default=None)
 
     url = presign_get(row["audio_s3_key"], expires_sec=300)
     return {"url": url}
+
+@app.post("/billing/checkout")
+def billing_checkout(payload: BillingCheckoutIn, authorization: str | None = Header(default=None)):
+    user = get_current_user(authorization)
+
+    plan = payload.plan.strip().lower()
+    if plan not in {"monthly", "yearly"}:
+        raise HTTPException(status_code=400, detail="Invalid plan")
+
+    price_id = os.getenv("STRIPE_PRICE_MONTHLY_ID") if plan == "monthly" else os.getenv("STRIPE_PRICE_YEARLY_ID")
+    if not price_id:
+        raise RuntimeError("Stripe price id env var missing")
+
+    success_url = os.getenv("STRIPE_SUCCESS_URL")
+    cancel_url = os.getenv("STRIPE_CANCEL_URL")
+    if not success_url or not cancel_url:
+        raise RuntimeError("STRIPE_SUCCESS_URL / STRIPE_CANCEL_URL not set")
+
+    s = _stripe()
+    session = s.checkout.Session.create(
+        mode="subscription",
+        line_items=[{"price": price_id, "quantity": 1}],
+        success_url=success_url,
+        cancel_url=cancel_url,
+        # Tie session to our user; no webhooks yet, so we’ll verify session on success
+        client_reference_id=str(user["id"]),
+        metadata={"user_id": str(user["id"]), "plan": plan},
+    )
+
+    # Optional: store stripe_session_id so success route can double-check ownership
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                INSERT INTO subscriptions (user_id, status, stripe_session_id, started_at, expires_at)
+                VALUES (:uid, 'CANCELED', :sid, NOW(), NULL)
+                ON CONFLICT (user_id)
+                DO UPDATE SET stripe_session_id=:sid;
+            """),
+            {"uid": int(user["id"]), "sid": session.id},
+        )
+
+    return {"url": session.url, "session_id": session.id}
+
+@app.get("/billing/success")
+def billing_success(session_id: str, authorization: str | None = Header(default=None)):
+    user = get_current_user(authorization)
+    s = _stripe()
+
+    session = s.checkout.Session.retrieve(session_id, expand=["subscription"])
+    # Basic verification checks (Tier-1)
+    if session.get("client_reference_id") != str(user["id"]):
+        raise HTTPException(status_code=403, detail="Session does not belong to this user")
+
+    if session.get("payment_status") not in {"paid", "no_payment_required"}:
+        raise HTTPException(status_code=400, detail="Payment not completed")
+
+    # subscription object exists in subscription mode
+    stripe_sub = session.get("subscription")
+    if not stripe_sub:
+        raise HTTPException(status_code=400, detail="No subscription found on session")
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                INSERT INTO subscriptions (user_id, status, stripe_customer_id, stripe_session_id, started_at, expires_at)
+                VALUES (:uid, 'ACTIVE', :cust, :sid, NOW(), NULL)
+                ON CONFLICT (user_id)
+                DO UPDATE SET status='ACTIVE', stripe_customer_id=:cust, stripe_session_id=:sid, started_at=NOW(), expires_at=NULL;
+            """),
+            {"uid": int(user["id"]), "cust": session.get("customer"), "sid": session.id},
+        )
+
+    return {"ok": True, "subscription": "ACTIVE"}
+
+@app.get("/billing/cancel")
+def billing_cancel():
+    return {"ok": True, "status": "canceled"}

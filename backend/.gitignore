@@ -18,3 +18,4 @@ backend/audio/*
 backend/waveforms/*
 !backend/audio/.gitkeep
 !backend/waveforms/.gitkeep
+.env
