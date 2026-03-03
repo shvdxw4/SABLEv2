@@ -712,3 +712,57 @@ def billing_success(session_id: str, authorization: str | None = Header(default=
 @app.get("/billing/cancel")
 def billing_cancel():
     return {"ok": True, "status": "canceled"}
+
+@app.post("/offline/manifest")
+def offline_manifest(authorization: str | None = Header(default=None)):
+    user = get_current_user(authorization)
+
+    # Determine subscription status
+    with engine.begin() as conn:
+        sub = conn.execute(
+            text("""
+                SELECT status, expires_at
+                FROM subscriptions
+                WHERE user_id = :uid
+            """),
+            {"uid": int(user["id"])}
+        ).mappings().first()
+
+    is_active = False
+    if sub:
+        if sub["status"] == "ACTIVE":
+            if sub["expires_at"] is None:
+                is_active = True
+            else:
+                from datetime import datetime
+                is_active = sub["expires_at"] > datetime.utcnow()
+
+    # Fetch allowed tracks
+    if is_active:
+        tier_filter = ("PUBLIC", "SUBSCRIBER")
+    else:
+        tier_filter = ("PUBLIC",)
+
+    with engine.begin() as conn:
+        rows = conn.execute(
+            text("""
+                SELECT id, title, tier, audio_s3_key
+                FROM tracks
+                WHERE state = 'PUBLISHED'
+                AND tier = ANY(:tiers)
+            """),
+            {"tiers": list(tier_filter)}
+        ).mappings().all()
+
+    # Build manifest
+    manifest = []
+    for row in rows:
+        stream_url = presign_get(row["audio_s3_key"])  # your existing presign helper
+        manifest.append({
+            "track_id": row["id"],
+            "title": row["title"],
+            "tier": row["tier"],
+            "stream_url": stream_url
+        })
+
+    return {"tracks": manifest}
