@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.db import engine
 from app.audio.routes import router 
@@ -13,6 +13,10 @@ from dotenv import load_dotenv
 import stripe 
 
 #Schemas
+
+class AdminSubIn(BaseModel):
+    identifier: str  # email or username
+
 class SignupIn(BaseModel):
     email: EmailStr
     username: str = Field(min_length=3, max_length=50)
@@ -191,6 +195,12 @@ def has_active_subscription(user_id: int) -> bool:
             return False
 
     return True
+
+def admin_only(authorization: str | None = Header(default=None)):
+    user = get_current_user(authorization)
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return user
 
 load_dotenv()
 
@@ -766,3 +776,84 @@ def offline_manifest(authorization: str | None = Header(default=None)):
         })
 
     return {"tracks": manifest}
+
+@app.post("/admin/subscriptions/activate")
+def admin_activate_sub(payload: AdminSubIn, admin=Depends(admin_only)):
+    with engine.begin() as conn:
+        u = conn.execute(
+            text("SELECT id FROM users WHERE email=:x OR username=:x"),
+            {"x": payload.identifier}
+        ).mappings().first()
+        if not u:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        conn.execute(
+            text("""
+                INSERT INTO subscriptions (user_id, status, started_at, expires_at)
+                VALUES (:uid, 'ACTIVE', NOW(), NULL)
+                ON CONFLICT (user_id) DO UPDATE
+                SET status='ACTIVE', started_at=NOW(), expires_at=NULL;
+            """),
+            {"uid": u["id"]}
+        )
+    return {"ok": True, "user_id": u["id"], "status": "ACTIVE"}
+
+@app.post("/admin/subscriptions/cancel")
+def admin_cancel_sub(payload: AdminSubIn, admin=Depends(admin_only)):
+    with engine.begin() as conn:
+        u = conn.execute(
+            text("SELECT id FROM users WHERE email=:x OR username=:x"),
+            {"x": payload.identifier}
+        ).mappings().first()
+        if not u:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        conn.execute(
+            text("""
+                INSERT INTO subscriptions (user_id, status, started_at, expires_at)
+                VALUES (:uid, 'CANCELED', NOW(), NULL)
+                ON CONFLICT (user_id) DO UPDATE
+                SET status='CANCELED';
+            """),
+            {"uid": u["id"]}
+        )
+    return {"ok": True, "user_id": u["id"], "status": "CANCELED"}
+
+@app.post("/admin/tracks/{track_id}/hide")
+def admin_hide_track(track_id: int, admin=Depends(admin_only)):
+    with engine.begin() as conn:
+        r = conn.execute(
+            text("UPDATE tracks SET state='REMOVED' WHERE id=:tid RETURNING id"),
+            {"tid": track_id}
+        ).fetchone()
+        if not r:
+            raise HTTPException(status_code=404, detail="Track not found")
+    return {"ok": True, "track_id": track_id, "state": "REMOVED"}
+
+@app.post("/admin/seed")
+def admin_seed(admin=Depends(admin_only)):
+    with engine.begin() as conn:
+        # upsert creator
+        creator = conn.execute(text("""
+            INSERT INTO users (email, username, password_hash, role)
+            VALUES ('demo_creator@sable.dev', 'DemoCreator', 'seeded', 'creator')
+            ON CONFLICT (email) DO UPDATE SET role='creator'
+            RETURNING id;
+        """)).fetchone()
+        creator_id = creator[0]
+
+        # create two published tracks
+        pub = conn.execute(text("""
+            INSERT INTO tracks (creator_id, title, tier, state, audio_s3_key, artwork_s3_key, created_at, published_at)
+            VALUES (:cid, 'Seed Public', 'PUBLIC', 'PUBLISHED', 'seed/audio-public.mp3', 'seed/art-public.png', NOW(), NOW())
+            RETURNING id;
+        """), {"cid": creator_id}).fetchone()[0]
+
+        sub = conn.execute(text("""
+            INSERT INTO tracks (creator_id, title, tier, state, audio_s3_key, artwork_s3_key, created_at, published_at)
+            VALUES (:cid, 'Seed Subscriber', 'SUBSCRIBER', 'PUBLISHED', 'seed/audio-sub.mp3', 'seed/art-sub.png', NOW(), NOW())
+            RETURNING id;
+        """), {"cid": creator_id}).fetchone()[0]
+
+    return {"ok": True, "creator_id": creator_id, "public_track_id": pub, "subscriber_track_id": sub}
+
