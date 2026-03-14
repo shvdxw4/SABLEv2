@@ -78,17 +78,17 @@ export default function Landing() {
         {/* CTA */}
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
-            to="/upload"
+            to="/login"
             className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition hover:opacity-90 dark:bg-sable-text dark:text-sable-bg"
           >
-            Upload a track
+            Enter SABLE
           </Link>
 
           <Link
-            to="/library"
+            to="/login"
             className="rounded-full border border-black/15 px-5 py-2 text-sm font-medium text-black transition hover:border-black/30 dark:border-sable-border dark:text-sable-text dark:hover:border-sable-muted"
           >
-            Open library
+            Creator login
           </Link>
         </div>
       </div>

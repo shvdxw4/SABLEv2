@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react'
 import { NavLink, Route, Routes } from "react-router-dom"
 import { API_BASE_URL } from './config'
-import Landing from "./pages/Landing"
-import Upload from "./pages/Upload"
-import Library from "./pages/Library"
+import Landing from "./pages/landing"
+import Upload from "./pages/upload"
+import Library from "./pages/library" 
+import Login from "./pages/login"
+import Signup from "./pages/signup"
+import ProtectedRoute from "./auth/ProtectedRoute";
 
 function App() {
   const [dark, setDark] = useState(true);
@@ -33,21 +36,32 @@ function App() {
                 >
                   Home
                 </NavLink>
+
                 <NavLink
-                  to="/upload"
+                  to="/app"
                   className={({ isActive }) =>
-                  `${linkBase} ${isActive ? linkActive : linkInactive}`
+                    `${linkBase} ${isActive ? linkActive : linkInactive}`
                   }
                 >
-                  Upload
+                  App
                 </NavLink>
+
                 <NavLink
-                  to="/library"
-                  className={({ isActive }) => 
-                  `${linkBase} ${isActive ? linkActive : linkInactive}`
+                  to="/creator"
+                  className={({ isActive }) =>
+                    `${linkBase} ${isActive ? linkActive : linkInactive}`
                   }
                 >
-                  Library
+                  Creator
+                </NavLink>
+
+                <NavLink
+                  to="/login"
+                  className={({ isActive }) =>
+                    `${linkBase} ${isActive ? linkActive : linkInactive}`
+                  }
+                >
+                  Login
                 </NavLink>
               </nav>
             </div>
@@ -64,8 +78,24 @@ function App() {
         <main className="mx-auto max-w-5xl px-4 py-10">
           <Routes>
             <Route path="/" element={<Landing />} />
-            <Route path="/upload" element={<Upload />} />
-            <Route path="/library" element={<Library />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route
+              path="/app"
+              element={
+                <ProtectedRoute>
+                  <Library />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/creator"
+              element={
+                <ProtectedRoute requireCreator>
+                  <Upload />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </main>
 

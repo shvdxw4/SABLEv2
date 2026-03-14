@@ -371,20 +371,6 @@ def create_creator_track(payload: CreatorTrackCreateIn, authorization: str | Non
             }
         )
 
-        track = conn.execute(
-            text("""
-                INSERT INTO tracks (creator_id, title, tier, state)
-                VALUES (:creator_id, :title, :tier, :state)
-                RETURNING id;
-            """),
-            {
-                "creator_id": user["id"],
-                "title": title,
-                "tier": TRACK_TIER_PUBLIC,
-                "state": TRACK_STATE_DRAFT,
-            },
-        ).mappings().one()
-
     audio_upload_url = presign_put(key=audio_key, content_type=payload.audio_content_type)
     artwork_upload_url = presign_put(key=artwork_key, content_type=payload.artwork_content_type)
 
@@ -528,6 +514,58 @@ def publish_track(track_id: int, payload: PublishIn, authorization: str | None =
         )
 
     return {"ok": True, "track_id": track_id, "state": TRACK_STATE_PUBLISHED, "tier": tier}
+
+@app.get("/creator/tracks")
+def list_creator_tracks(authorization: str | None = Header(default=None)):
+    user = get_current_user(authorization)
+    require_creator(user)
+
+    with engine.begin() as conn:
+        rows = conn.execute(
+            text("""
+                SELECT
+                    t.id,
+                    t.title,
+                    t.state,
+                    t.tier,
+                    t.audio_s3_key,
+                    t.artwork_s3_key,
+                    t.created_at,
+                    t.published_at
+                FROM tracks t
+                WHERE t.creator_id = :creator_id
+                ORDER BY t.created_at DESC;
+            """),
+            {"creator_id": user["id"]},
+        ).mappings().all()
+
+        tracks = []
+        for r in rows:
+            tags = [
+                x[0] for x in conn.execute(
+                    text("""
+                        SELECT tag
+                        FROM track_tags
+                        WHERE track_id = :track_id
+                        ORDER BY tag;
+                    """),
+                    {"track_id": r["id"]},
+                ).all()
+            ]
+
+            tracks.append({
+                "id": int(r["id"]),
+                "title": r["title"],
+                "state": r["state"],
+                "tier": r["tier"],
+                "audio_s3_key": r["audio_s3_key"],
+                "artwork_s3_key": r["artwork_s3_key"],
+                "created_at": r["created_at"],
+                "published_at": r["published_at"],
+                "tags": tags,
+            })
+
+    return {"tracks": tracks}
 
 @app.delete("/creator/tracks/{track_id}")
 def remove_track(track_id: int, authorization: str | None = Header(default=None)):
