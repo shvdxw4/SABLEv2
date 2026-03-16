@@ -38,12 +38,12 @@ function App() {
                 </NavLink>
 
                 <NavLink
-                  to="/app"
+                  to="/library"
                   className={({ isActive }) =>
                     `${linkBase} ${isActive ? linkActive : linkInactive}`
                   }
                 >
-                  App
+                  Library
                 </NavLink>
 
                 <NavLink
@@ -81,7 +81,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route
-              path="/app"
+              path="/library"
               element={
                 <ProtectedRoute>
                   <Library />
