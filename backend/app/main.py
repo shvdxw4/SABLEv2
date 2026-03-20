@@ -12,6 +12,8 @@ from typing import Optional, List
 from dotenv import load_dotenv
 import stripe 
 
+load_dotenv()
+
 #Schemas
 
 class AdminSubIn(BaseModel):
@@ -96,10 +98,8 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 def decode_access_token(token: str):
-    print("TOKEN RECEIVED FOR DECODE:", token)
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print("DECODED PAYLOAD:", payload)
         return payload
     except jwt.ExpiredSignatureError:
         return None
@@ -201,8 +201,6 @@ def admin_only(authorization: str | None = Header(default=None)):
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     return user
-
-load_dotenv()
 
 def _stripe():
     key = os.getenv("STRIPE_SECRET_KEY")
