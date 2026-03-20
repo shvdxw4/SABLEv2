@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { NavLink, Route, Routes } from "react-router-dom"
-import { API_BASE_URL } from './config'
 import Landing from "./pages/landing"
 import Upload from "./pages/upload"
 import Library from "./pages/library" 
@@ -16,7 +15,7 @@ function App() {
   const linkInactive =
     "border-black/10 text-black/70 hover:border-black/25 hover:text-black dark:border-sable-border dark:text-sable-muted dark:hover:border-sable-muted dark:hover:text-sable-text"
   const linkActive =
-    "border-black/30 text-back dark:border-sable-muted dark:text-sable-text"
+    "border-black/30 text-black dark:border-sable-muted dark:text-sable-text"
 
   return (
     <div className={rootClass}>
@@ -100,7 +99,7 @@ function App() {
         </main>
 
         <footer className="border-t border-black/10 py-8 dark:border-sable-border">
-          <div className="mx-auto max-5xl px-4 text-sm text-black/60 dark:text-sable-muted">
+          <div className="mx-auto max-w-5xl px-4 text-sm text-black/60 dark:text-sable-muted">
             SABLE - MVP demo build. Monochromatic Heat.
           </div>
         </footer>  

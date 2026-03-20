@@ -82,11 +82,6 @@ export default function Library() {
       })
       : [];
 
-console.log("LIBRARY DEBUG", {
-  state,
-  filteredItems,
-  query,
-});
 
   return (
     <div>
@@ -122,13 +117,6 @@ console.log("LIBRARY DEBUG", {
           />
         </div>
       )}
-
-      <div className="mb-4 rounded-xl border border border-black/10 p-3 text-xs dark:border-sable-border">
-        <div>status: {state.status}</div>
-        <div>
-          filtered count: {state.status === "ok" ? filteredItems.length : 0}
-        </div>
-      </div>
 
       {state.status === "loading" && (
         <div className="mt-6 rounded-2xl border border-black/10 bg-white p-6 text-sm dark:border-sable-border dark:bg-sable-panel">
