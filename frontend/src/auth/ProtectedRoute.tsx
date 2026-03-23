@@ -21,7 +21,7 @@ export default function ProtectedRoute({
   }
 
   if (requireCreator && user.role !== "creator") {
-    return <Navigate to="/library" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

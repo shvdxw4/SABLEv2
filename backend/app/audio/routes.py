@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydub import AudioSegment
 import matplotlib.pyplot as plt
 import numpy as np
-from datetime import datetime 
+from datetime import datetime
 from typing import List, Optional
 
 router = APIRouter()
@@ -18,51 +18,57 @@ ALLOWED_EXTS = {"mp3", "wav"}
 TAGS_FILE = os.path.join(BACKEND_DIR, "tags.json")
 WAVEFORM_ENABLED = os.getenv("SABLE_WAVEFORM_ENABLED", "true").lower() == "true"
 
+
 def load_tags():
     if os.path.exists(TAGS_FILE):
         with open(TAGS_FILE, "r") as f:
             return json.load(f)
     return {}
 
+
 def save_tags():
     with open(TAGS_FILE, "w") as f:
         json.dump(audio_tags, f)
+
 
 audio_tags = load_tags()
 
 os.makedirs(AUDIO_DIR, exist_ok=True)
 os.makedirs(WAVEFORM_DIR, exist_ok=True)
 
+
 @router.post("/audio/upload")
 async def upload_audio(file: UploadFile = File(...)):
     try:
-        #Check extension
-        ext = file.filename.split('.')[-1].lower()
+        # Check extension
+        ext = file.filename.split(".")[-1].lower()
         if ext not in ALLOWED_EXTS:
-            raise HTTPException(status_code=400, detail="Invalid audio format (mp3/wav only)")
-    
-        #Save audio file
+            raise HTTPException(
+                status_code=400, detail="Invalid audio format (mp3/wav only)"
+            )
+
+        # Save audio file
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
         save_name = f"{ts}_file{file.filename}"
         audio_path = os.path.join(AUDIO_DIR, save_name)
         with open(audio_path, "wb") as f:
             f.write(await file.read())
 
-        #Load with pydub and get waveform data
+        # Load with pydub and get waveform data
         waveform_path = None
         audio = AudioSegment.from_file(audio_path)
         duration = round(audio.duration_seconds, 2)
 
-        #Generate and save waveforms image
+        # Generate and save waveforms image
         if WAVEFORM_ENABLED:
             samples = audio.get_array_of_samples()
             arr = np.array(samples)
-            plt.figure(figsize=(8,2))
-            plt.plot(arr, color='purple')
-            plt.axis('off')
+            plt.figure(figsize=(8, 2))
+            plt.plot(arr, color="purple")
+            plt.axis("off")
             waveform_name = save_name.replace(f".{ext}", ".png")
             waveform_path = os.path.join(WAVEFORM_DIR, waveform_name)
-            plt.savefig(waveform_path, bbox_inches='tight', pad_inches=0)
+            plt.savefig(waveform_path, bbox_inches="tight", pad_inches=0)
             plt.close()
 
         return {
@@ -76,13 +82,20 @@ async def upload_audio(file: UploadFile = File(...)):
         print("UPLOAD ERROR:", str(e))
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
+
 @router.get("/audio/{filename}/download")
 def download_audio_fie(filename: str):
     audio_path = os.path.join(AUDIO_DIR, filename)
     if os.path.exists(audio_path):
-        return FileResponse(audio_path, media_type="application/octet-stream", filename=filename, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+        return FileResponse(
+            audio_path,
+            media_type="application/octet-stream",
+            filename=filename,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
     else:
         raise HTTPException(status_code=404, detail="Audio file not found")
+
 
 @router.get("/audio/")
 def list_audio_files():
@@ -97,19 +110,24 @@ def list_audio_files():
             except Exception:
                 duration = None
             waveform_img = os.path.join(WAVEFORM_DIR, fname.rsplit(".", 1)[0] + ".png")
-            files.append({
-                "filename": fname,
-                "size_bytes": stat.st_size,
-                "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                "duration_sec": duration,
-                "waveform_image": waveform_img,
-            })
+            files.append(
+                {
+                    "filename": fname,
+                    "size_bytes": stat.st_size,
+                    "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "duration_sec": duration,
+                    "waveform_image": waveform_img,
+                }
+            )
     return {"audio_files": files}
 
+
 @router.delete("/audio/{filename}")
-def delete_audio_file(filename: str = Path(..., description="Name of the audio file to delete")):
+def delete_audio_file(
+    filename: str = Path(..., description="Name of the audio file to delete")
+):
     audio_path = os.path.join(AUDIO_DIR, filename)
-    waveform_path = os.path.join(WAVEFORM_DIR, filename.rsplit('.', 1)[0] + ".png")
+    waveform_path = os.path.join(WAVEFORM_DIR, filename.rsplit(".", 1)[0] + ".png")
     if os.path.exists(audio_path):
         os.remove(audio_path)
         if os.path.exists(waveform_path):
@@ -117,57 +135,62 @@ def delete_audio_file(filename: str = Path(..., description="Name of the audio f
         return {"message": f"{filename} deleted successfully"}
     else:
         raise HTTPException(status_code=404, detail="File not found")
-    
+
+
 @router.get("/audio/{filename}/waveform")
 def get_waveform_image(filename: str):
-    name_no_ext = filename.rsplit('.', 1)[0]
+    name_no_ext = filename.rsplit(".", 1)[0]
     path = os.path.join(WAVEFORM_DIR, f"{name_no_ext}.png")
     if os.path.exists(path):
         return FileResponse(path, media_type="image/png")
     else:
         raise HTTPException(status_code=404, detail="Waveform image not found")
-    
+
+
 @router.get("/audio/{filename}/stream")
 def stream_audio_file(filename: str):
     path = os.path.join(AUDIO_DIR, filename)
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Audio file not found")
-    ext = filename.rsplit('.', 1)[-1].lower()
+    ext = filename.rsplit(".", 1)[-1].lower()
     media_type = f"audio/{ext}" if ext in ("mp3", "wav") else "application/octet-stream"
     file = open(path, "rb")
     headers = {"Content-Disposition": f'inline; filename="{filename}"'}
     return FileResponse(path, media_type=media_type, filename=filename, headers=headers)
 
+
 @router.patch("/audio/{filename}/edit")
 def edit_auto_metadata(
     filename: str,
     new_filename: Optional[str] = Body(None),
-    tags: Optional[List[str]] = Body(None)
+    tags: Optional[List[str]] = Body(None),
 ):
     audio_path = os.path.join(AUDIO_DIR, filename)
-    waveform_path = os.path.join(WAVEFORM_DIR, filename.rsplit('.', 1)[0] + ".png")
+    waveform_path = os.path.join(WAVEFORM_DIR, filename.rsplit(".", 1)[0] + ".png")
 
     if not os.path.exists(audio_path):
         raise HTTPException(status_code=404, detail="Audio file not found")
-    
+
     updated_filename = filename
     updated_waveform = waveform_path
 
-    #RENAME audio file and waveform image if needed
+    # RENAME audio file and waveform image if needed
     if new_filename and new_filename != filename:
         new_audio_path = os.path.join(AUDIO_DIR, new_filename)
-        new_waveform_path = os.path.join(WAVEFORM_DIR, new_filename.rsplit('.', 1)[0] + ".png")
+        new_waveform_path = os.path.join(
+            WAVEFORM_DIR, new_filename.rsplit(".", 1)[0] + ".png"
+        )
         os.rename(audio_path, new_audio_path)
         if os.path.exists(waveform_path):
             os.rename(waveform_path, new_waveform_path)
         updated_filename = new_filename
         updated_waveform = new_waveform_path
-        #If tags existed for old name, transfer them
+        # If tags existed for old name, transfer them
         if filename in audio_tags:
             audio_tags[new_filename] = audio_tags.pop(filename)
         save_tags()
 
-    #UPDATE tags (in-memory for now)
+    # UPDATE tags (in-memory for now)
     if tags is not None:
         audio_tags[updated_filename] = tags
         save_tags()
@@ -176,25 +199,29 @@ def edit_auto_metadata(
         "message": "Audio metadata updated",
         "filename": updated_filename,
         "tags": audio_tags.get(updated_filename, []),
-        "waveform_image": updated_waveform
+        "waveform_image": updated_waveform,
     }
+
 
 @router.get("/audio/search")
 def search_audio_files(q: str = Query(..., description="Search by filename or tag")):
     results = []
     for fname in os.listdir(AUDIO_DIR):
-        #Skip non-audio files just in case
+        # Skip non-audio files just in case
         if not fname.endswith((".mp3", ".wav")):
             continue
         tags = audio_tags.get(fname, [])
         if q.lower() in fname.lower() or any(q.lower() in tag.lower() for tag in tags):
-            results.append({
-                "filename": fname,
-                "tags": tags,
-            })
+            results.append(
+                {
+                    "filename": fname,
+                    "tags": tags,
+                }
+            )
     if not results:
         raise HTTPException(status_code=404, detail="No matching audio files found")
     return {"results": results}
+
 
 @router.get("/health")
 def health_check():

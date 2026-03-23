@@ -43,14 +43,16 @@ export default function Login() {
       <div className="mb-8">
         <h1 className="text-3xl font-semibold tracking-tight">Login</h1>
         <p className="mt-2 text-sm text-black/70 dark:text-sable-muted">
-          Sign in to access your SABLE space.
+          Sign in to access your SABLE account.
         </p>
       </div>
 
       <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">Email or Username</label>
+            <label className="mb-1 block text-sm font-medium">
+              Email or Username
+            </label>
             <input
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}

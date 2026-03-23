@@ -26,7 +26,10 @@ export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-export async function login(identifier: string, password: string): Promise<AuthResponse> {
+export async function login(
+  identifier: string,
+  password: string
+): Promise<AuthResponse> {
   const res = await fetch(`${API_BASE_URL}/login`, {
     method: "POST",
     headers: {
@@ -45,13 +48,18 @@ export async function login(identifier: string, password: string): Promise<AuthR
   return data;
 }
 
-export async function signup(email: string, username: string, password: string) {
+export async function signup(
+  email: string,
+  username: string,
+  password: string,
+  role: "subscriber" | "creator" = "subscriber"
+) {
   const res = await fetch(`${API_BASE_URL}/signup`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email, username, password }),
+    body: JSON.stringify({ email, username, password, role }),
   });
 
   const data = await res.json();

@@ -2,6 +2,7 @@ import os
 import boto3
 from botocore.config import Config
 
+
 def _s3_client():
     region = os.getenv("AWS_REGION")
     bucket = os.getenv("SABLE_S3_BUCKET")
@@ -16,8 +17,9 @@ def _s3_client():
         "s3",
         region_name=region,
         endpoint_url=f"https://s3.{region}.amazonaws.com",
-        config=Config(signature_version="s3v4")
+        config=Config(signature_version="s3v4"),
     )
+
 
 def presign_put(key: str, content_type: str, expires_sec: int = 900) -> str:
     s3 = _s3_client()
@@ -27,6 +29,7 @@ def presign_put(key: str, content_type: str, expires_sec: int = 900) -> str:
         Params={"Bucket": bucket, "Key": key, "ContentType": content_type},
         ExpiresIn=expires_sec,
     )
+
 
 def presign_get(key: str, expires_sec: int = 900) -> str:
     s3 = _s3_client()
