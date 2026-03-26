@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { usePlayer } from "../player/PlayerContext";
+import { useLibrary } from "../library/LibraryContext";
 import {
   fetchTracks,
   fetchTrackStreamUrl,
@@ -14,13 +16,11 @@ type LibraryState =
 export default function Library() {
   const [state, setState] = useState<LibraryState>({ status: "loading" });
   const [query, setQuery] = useState("");
-
-  const [activeTrackId, setActiveTrackId] = useState<number | null>(null);
   const [streamLoadingId, setStreamLoadingId] = useState<number | null>(null);
   const [streamError, setStreamError] = useState<Record<number, string>>({});
-  const [, setActiveTrackTitle] = useState<string>("");
-  const [, setActiveTrackTier] = useState<string>("");
-  const [, setActiveStreamUrl] = useState<string>("");
+
+  const { playTrack, currentTrack } = usePlayer();
+  const { isSaved, toggleSavedTrack } = useLibrary();
 
   useEffect(() => {
     let alive = true;
@@ -59,15 +59,18 @@ export default function Library() {
 
     try {
       const url = await fetchTrackStreamUrl(track.id);
-      setActiveTrackId(track.id);
-      setActiveTrackTitle(track.title);
-      setActiveTrackTier(track.tier);
-      setActiveStreamUrl(url);
+      playTrack(
+        {
+          id: track.id,
+          title: track.title,
+          tier: track.tier,
+          artist: "SABLE Sessions",
+        }, url);
     } catch (e: any) {
       setStreamError((prev) => ({
         ...prev,
         [track.id]: e?.message ?? "Failed to load stream",
-      }));
+      }))
     } finally {
       setStreamLoadingId(null);
     }
@@ -92,8 +95,9 @@ export default function Library() {
   const newAndNotable = filteredItems.slice(5, 10);
 
   function TrackCard({ track }: { track: ListenerTrack }) {
-    const isActive = activeTrackId === track.id;
+    const isActive = currentTrack?.id === track.id;
     const isSubscriber = track.tier === "SUBSCRIBER";
+    const saved = isSaved(track.id);
 
     return (
       <div className="group rounded-[1.15rem] border border-white/10 bg-black/20 p-3 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.05]">
@@ -120,16 +124,28 @@ export default function Library() {
             </span>
           </div>
 
+          <div className="mt-4 flex flex-col gap-2"></div>
           <button
             type="button"
             disabled={streamLoadingId === track.id}
             onClick={() => handlePlay(track)}
-            className={`mt-4 flex w-full items-center justify-center rounded-full px-4 py-2.5 text-sm font-medium transition ${isActive
+            className={`flex w-full items-center justify-center rounded-full px-4 py-2.5 text-sm font-medium transition ${isActive
               ? "bg-white text-black"
               : "border border-white/10 bg-white/[0.03] text-white hover:border-white/20 hover:bg-white/[0.08]"
               } disabled:cursor-not-allowed disabled:opacity-50`}
           >
             {streamLoadingId === track.id ? "Loading…" : "Play"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => toggleSavedTrack(track.id)}
+            className={`flex w-full items-center justify-center rounded-full px-4 py-2.5 text-sm font-medium transition ${saved
+              ? "bg-white text-black"
+              : "border border-white/10 bg-white/[0.03] text-white hover:border-white/20 hover:bg-white/[0.08]"
+              }`}
+          >
+            {saved ? "Added" : "Add"}
           </button>
 
           {streamError[track.id] && (
