@@ -139,40 +139,56 @@ export default function Upload() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Creator Workspace
-        </h1>
-        <p className="mt-2 text-sm text-black/70 dark:text-sable-muted">
-          Manage drafts, prepare uploads, and publish intentionally.
-        </p>
-      </div>
+      <section className="overflow-hidden rounded-[2rem] border border-black/10 bg-white p-8 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft md:p-10">
+        <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+          <div>
+            <p className="text-sm uppercase tracking-[0.2em] text-black/50 dark:text-sable-muted">
+              Artist Workspace
+            </p>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
-          <p className="text-xs uppercase tracking-wide text-black/50 dark:text-sable-muted">
-            Drafts
-          </p>
-          <p className="mt-2 text-2xl font-semibold">{draftCount}</p>
-        </div>
+            <h1 className="mt-3 text-5xl font-semibold tracking-tight md:text-6xl">
+              Creator Studio
+            </h1>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
-          <p className="text-xs uppercase tracking-wide text-black/50 dark:text-sable-muted">
-            Published
-          </p>
-          <p className="mt-2 text-2xl font-semibold">{publishedCount}</p>
-        </div>
+            <p className="mt-4 max-w-2xl text-base text-black/70 dark:text-sable-muted">
+              Build privately, manage your catalog, and move tracks from draft
+              to release with intention.
+            </p>
+          </div>
 
-        <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
-          <p className="text-xs uppercase tracking-wide text-black/50 dark:text-sable-muted">
-            Removed
-          </p>
-          <p className="mt-2 text-2xl font-semibold">{removed.length}</p>
+          <div className="rounded-[2rem] border border-black/10 bg-black/5 p-6 dark:border-sable-border dark:bg-white/5">
+            <p className="text-sm uppercase tracking-wide text-black/50 dark:text-sable-muted">
+              Snapshot
+            </p>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-black/10 bg-white p-4 dark:border-sable-border dark:bg-sable-panel">
+                <p className="text-xs uppercase tracking-wide text-black/50 dark:text-sable-muted">
+                  Drafts
+                </p>
+                <p className="mt-2 text-2xl font-semibold">{draftCount}</p>
+              </div>
+
+              <div className="rounded-2xl border border-black/10 bg-white p-4 dark:border-sable-border dark:bg-sable-panel">
+                <p className="text-xs uppercase tracking-wide text-black/50 dark:text-sable-muted">
+                  Published
+                </p>
+                <p className="mt-2 text-2xl font-semibold">{publishedCount}</p>
+              </div>
+
+              <div className="rounded-2xl border border-black/10 bg-white p-4 dark:border-sable-border dark:bg-sable-panel">
+                <p className="text-xs uppercase tracking-wide text-black/50 dark:text-sable-muted">
+                  Removed
+                </p>
+                <p className="mt-2 text-2xl font-semibold">{removed.length}</p>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
       {state.status === "loading" && (
-        <div className="rounded-2xl border border-black/10 bg-white p-6 text-sm dark:border-sable-border dark:bg-sable-panel">
+        <div className="mt-8 rounded-3xl border border-black/10 bg-white p-6 text-sm shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
           <p className="text-black/70 dark:text-sable-muted">
             Loading creator workspace…
           </p>
@@ -180,7 +196,7 @@ export default function Upload() {
       )}
 
       {state.status === "error" && (
-        <div className="rounded-2xl border border-black/10 bg-white p-6 text-sm dark:border-sable-border dark:bg-sable-panel">
+        <div className="mt-8 rounded-3xl border border-black/10 bg-white p-6 text-sm shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
           <p className="text-black/70 dark:text-sable-muted">
             <span className="font-medium text-red-600">Error</span> —{" "}
             {state.detail}
@@ -189,25 +205,30 @@ export default function Upload() {
       )}
 
       {state.status === "ok" && (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
-            <div className="mb-4">
-              <h2 className="text-lg font-medium">Recent Drafts</h2>
-              <p className="mt-1 text-sm text-black/60 dark:text-sable-muted">
-                Tracks waiting for final review and publish.
+        <div className="mt-10 grid gap-6 xl:grid-cols-[1fr_1fr_1fr]">
+          <section className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
+            <div className="mb-5">
+              <p className="text-sm uppercase tracking-[0.2em] text-black/50 dark:text-sable-muted">
+                Drafts
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                Recent Drafts
+              </h2>
+              <p className="mt-2 text-sm text-black/60 dark:text-sable-muted">
+                Tracks waiting for final review and release.
               </p>
             </div>
 
             {drafts.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-black/10 p-4 text-sm text-black/60 dark:border-sable-border dark:text-sable-muted">
-                No drafts yet. New uploads will land here first.
+              <div className="rounded-2xl border border-dashed border-black/10 p-4 text-sm text-black/60 dark:border-sable-border dark:text-sable-muted">
+                No drafts yet. New uploads will appear here first.
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {drafts.map((track) => (
                   <div
                     key={track.id}
-                    className="rounded-xl border border-black/10 p-4 dark:border-sable-border"
+                    className="rounded-2xl border border-black/10 p-4 dark:border-sable-border"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -286,11 +307,17 @@ export default function Upload() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
-            <div className="mb-4">
-              <h2 className="text-lg font-medium">Create Draft</h2>
-              <p className="mt-1 text-sm text-black/60 dark:text-sable-muted">
-                Uploads always enter as drafts and must be published manually.
+          <section className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
+            <div className="mb-5">
+              <p className="text-sm uppercase tracking-[0.2em] text-black/50 dark:text-sable-muted">
+                Create
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                New Draft
+              </h2>
+              <p className="mt-2 text-sm text-black/60 dark:text-sable-muted">
+                Upload audio and artwork. Every release begins privately as a
+                draft.
               </p>
             </div>
 
@@ -349,31 +376,35 @@ export default function Upload() {
                 {creating ? "Creating draft…" : "Create draft"}
               </button>
 
-              <div className="rounded-xl border border-dashed border-black/10 p-4 text-xs text-black/60 dark:border-sable-border dark:text-sable-muted">
-                Uploads land in drafts first. Publishing happens separately after
-                review.
+              <div className="rounded-2xl border border-dashed border-black/10 p-4 text-xs text-black/60 dark:border-sable-border dark:text-sable-muted">
+                Drafts stay private until you explicitly publish them.
               </div>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
-            <div className="mb-4">
-              <h2 className="text-lg font-medium">Published</h2>
-              <p className="mt-1 text-sm text-black/60 dark:text-sable-muted">
-                Live tracks that have already cleared draft review.
+          <section className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
+            <div className="mb-5">
+              <p className="text-sm uppercase tracking-[0.2em] text-black/50 dark:text-sable-muted">
+                Published
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                Live Releases
+              </h2>
+              <p className="mt-2 text-sm text-black/60 dark:text-sable-muted">
+                Tracks that have already moved from studio to audience.
               </p>
             </div>
 
             {published.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-black/10 p-4 text-sm text-black/60 dark:border-sable-border dark:text-sable-muted">
+              <div className="rounded-2xl border border-dashed border-black/10 p-4 text-sm text-black/60 dark:border-sable-border dark:text-sable-muted">
                 Nothing published yet.
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {published.map((track) => (
                   <div
                     key={track.id}
-                    className="rounded-xl border border-black/10 p-4 dark:border-sable-border"
+                    className="rounded-2xl border border-black/10 p-4 dark:border-sable-border"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>

@@ -7,6 +7,16 @@
     color-scheme: light dark;
 }
 
-html, body, #root {
+html,
+body,
+#root {
     height: 100%
+}
+
+* {
+    scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+    display: none;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   fetchTracks,
   fetchTrackStreamUrl,
@@ -15,10 +15,12 @@ export default function Library() {
   const [state, setState] = useState<LibraryState>({ status: "loading" });
   const [query, setQuery] = useState("");
 
-  const [activeTrackTitle, setActiveTrackTitle] = useState<string>("");
-  const [activeStreamUrl, setActiveStreamUrl] = useState<string>("");
+  const [activeTrackId, setActiveTrackId] = useState<number | null>(null);
   const [streamLoadingId, setStreamLoadingId] = useState<number | null>(null);
   const [streamError, setStreamError] = useState<Record<number, string>>({});
+  const [, setActiveTrackTitle] = useState<string>("");
+  const [, setActiveTrackTier] = useState<string>("");
+  const [, setActiveStreamUrl] = useState<string>("");
 
   useEffect(() => {
     let alive = true;
@@ -57,7 +59,9 @@ export default function Library() {
 
     try {
       const url = await fetchTrackStreamUrl(track.id);
+      setActiveTrackId(track.id);
       setActiveTrackTitle(track.title);
+      setActiveTrackTier(track.tier);
       setActiveStreamUrl(url);
     } catch (e: any) {
       setStreamError((prev) => ({
@@ -69,133 +73,171 @@ export default function Library() {
     }
   }
 
-  const filteredItems =
-    state.status === "ok"
-      ? state.items.filter((item) => {
-        const q = query.trim().toLowerCase();
-        if (!q) return true;
+  const allItems = state.status === "ok" ? state.items : [];
 
-        const inTitle = item.title.toLowerCase().includes(q);
-        const inTier = item.tier.toLowerCase().includes(q);
+  const filteredItems = useMemo(() => {
+    const q = query.trim().toLowerCase();
 
-        return inTitle || inTier;
-      })
-      : [];
+    return allItems.filter((item) => {
+      if (!q) return true;
 
+      return (
+        item.title.toLowerCase().includes(q) ||
+        item.tier.toLowerCase().includes(q)
+      );
+    });
+  }, [allItems, query]);
+
+  const recentlyPublished = filteredItems.slice(0, 5);
+  const newAndNotable = filteredItems.slice(5, 10);
+
+  function TrackCard({ track }: { track: ListenerTrack }) {
+    const isActive = activeTrackId === track.id;
+    const isSubscriber = track.tier === "SUBSCRIBER";
+
+    return (
+      <div className="group rounded-[1.15rem] border border-white/10 bg-black/20 p-3 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.05]">
+        <div className="aspect-square rounded-[0.95rem] bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.24),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
+
+        <div className="mt-4">
+          <p className="truncate text-[1.05rem] font-medium text-white">
+            {track.title}
+          </p>
+          <p className="mt-1 text-sm text-white/48">
+            {track.published_at
+              ? `Released ${new Date(track.published_at).toLocaleDateString()}`
+              : "Unpublished"}
+          </p>
+
+          <div className="mt-3">
+            <span
+              className={`rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] ${isSubscriber
+                ? "bg-orange-400/15 text-orange-300"
+                : "bg-white/10 text-white/70"
+                }`}
+            >
+              {track.tier}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            disabled={streamLoadingId === track.id}
+            onClick={() => handlePlay(track)}
+            className={`mt-4 flex w-full items-center justify-center rounded-full px-4 py-2.5 text-sm font-medium transition ${isActive
+              ? "bg-white text-black"
+              : "border border-white/10 bg-white/[0.03] text-white hover:border-white/20 hover:bg-white/[0.08]"
+              } disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            {streamLoadingId === track.id ? "Loading…" : "Play"}
+          </button>
+
+          {streamError[track.id] && (
+            <p className="mt-2 text-xs text-red-400">{streamError[track.id]}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function SectionRow({
+    title,
+    items,
+  }: {
+    title: string;
+    items: ListenerTrack[];
+  }) {
+    if (items.length === 0) return null;
+
+    return (
+      <section className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[1.8rem] font-semibold tracking-tight text-white">
+            {title}
+          </h2>
+
+          <button
+            type="button"
+            className="text-sm text-white/50 transition hover:text-white/80"
+          >
+            View all
+          </button>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+          {items.map((track) => (
+            <TrackCard key={track.id} track={track} />
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">Library</h1>
-        <p className="mt-2 text-sm text-black/70 dark:text-sable-muted">
-          Browse published tracks and stream them live from the platform.
-        </p>
-      </div>
-
-      <div className="mt-4">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by title or tier…"
-          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-black/30 dark:border-sable-border dark:bg-sable-bg dark:text-sable-text dark:focus:border-sable-muted"
-        />
-      </div>
-
-      {activeStreamUrl && (
-        <div className="mt-6 rounded-2xl border border-black/10 bg-white p-5 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft">
-          <p className="text-sm text-black/60 dark:text-sable-muted">
-            Now playing
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-[3rem] font-semibold tracking-tight text-white">
+            Library
+          </h1>
+          <p className="mt-2 text-base text-white/55">
+            Browse published tracks and stream them live from the platform.
           </p>
-          <p className="mt-1 font-medium">{activeTrackTitle}</p>
+        </div>
 
-          <audio
-            key={activeStreamUrl}
-            controls
-            autoPlay
-            className="mt-4 w-full"
-            src={activeStreamUrl}
+        <div className="flex items-center gap-3">
+          <button className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-2.5 text-sm font-medium text-white">
+            + Create
+          </button>
+          <button className="text-sm text-white/55 transition hover:text-white/80">
+            Recents
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white/55">
+          <span>⌕</span>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search in Your Library"
+            className="w-full bg-transparent outline-none placeholder:text-white/35"
           />
         </div>
-      )}
+      </div>
 
       {state.status === "loading" && (
-        <div className="mt-6 rounded-2xl border border-black/10 bg-white p-6 text-sm dark:border-sable-border dark:bg-sable-panel">
-          <p className="text-black/70 dark:text-sable-muted">Loading tracks…</p>
+        <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6 text-white/70">
+          Loading tracks…
         </div>
       )}
 
       {state.status === "error" && (
-        <div className="mt-6 rounded-2xl border border-black/10 bg-white p-6 text-sm dark:border-sable-border dark:bg-sable-panel">
-          <p className="text-black/70 dark:text-sable-muted">
-            <span className="font-medium text-red-600">Error</span> —{" "}
-            {state.detail}
-          </p>
-          <p className="mt-2 text-black/60 dark:text-sable-muted">
-            Check that the backend is online and that published tracks exist.
+        <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6">
+          <p className="text-white/80">
+            <span className="text-red-400">Error</span> — {state.detail}
           </p>
         </div>
       )}
 
       {state.status === "empty" && (
-        <div className="mt-6 rounded-2xl border border-black/10 bg-white p-6 text-sm dark:border-sable-border dark:bg-sable-panel">
-          <p className="text-black/70 dark:text-sable-muted">
-            No published tracks yet.
-          </p>
+        <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6 text-white/70">
+          No tracks are available yet.
         </div>
       )}
 
       {query.trim() && filteredItems.length === 0 && (
-        <div className="mt-6 rounded-2xl border border-black/10 bg-white p-6 text-sm dark:border-sable-border dark:bg-sable-panel">
-          <p className="text-black/70 dark:text-sable-muted">
-            No matches for “{query.trim()}”.
-          </p>
+        <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6 text-white/70">
+          No matches for “{query.trim()}”.
         </div>
       )}
 
       {state.status === "ok" && filteredItems.length > 0 && (
-        <div className="mt-6 grid gap-4">
-          {filteredItems.map((track) => (
-            <div
-              key={track.id}
-              className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm dark:border-sable-border dark:bg-sable-panel dark:shadow-soft"
-            >
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-sm text-black/60 dark:text-sable-muted">
-                    {track.published_at
-                      ? new Date(track.published_at).toLocaleString()
-                      : "Unpublished"}
-                  </p>
-
-                  <p className="mt-1 text-base font-medium">{track.title}</p>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="rounded-full border border-black/10 bg-black/5 px-3 py-1 text-xs text-black/70 dark:border-sable-border dark:bg-white/5 dark:text-sable-muted">
-                      {track.tier}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex w-full flex-col gap-2 md:w-56">
-                  <button
-                    type="button"
-                    disabled={streamLoadingId === track.id}
-                    onClick={() => handlePlay(track)}
-                    className="rounded-full bg-black px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sable-text dark:text-sable-bg"
-                  >
-                    {streamLoadingId === track.id ? "Loading…" : "Play"}
-                  </button>
-
-                  {streamError[track.id] && (
-                    <p className="text-xs text-red-600">
-                      {streamError[track.id]}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <>
+          <SectionRow title="Recently published" items={recentlyPublished} />
+          <SectionRow title="New & notable" items={newAndNotable} />
+        </>
       )}
     </div>
   );
