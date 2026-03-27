@@ -18,6 +18,14 @@ export default function PlayerLayout() {
         setIsPlaying,
         playTrack,
         recentTracks,
+        playNext,
+        playPrevious,
+        currentTime,
+        duration,
+        setDurationFromAudio,
+        setCurrentTimeFromAudio,
+        seekTo,
+        handleEnded,
     } = usePlayer();
 
     const { savedTracks } = useLibrary();
@@ -52,6 +60,17 @@ export default function PlayerLayout() {
             console.error("Failed to play saved track:", error);
         }
     }
+
+    function formatTime(time: number) {
+        if (!Number.isFinite(time) || time < 0) return "0:00";
+
+        const minutes = Math.floor(time / 60);
+        const seconds = Math.floor(time % 60);
+
+        return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+    }
+
+    const progressPercent = duration > 0 ? Math.min((currentTime / duration) * 100, 100) : 0;
 
     return (
         <div className="relative h-screen w-screen overflow-hidden bg-[#050607] text-white">
@@ -283,22 +302,36 @@ export default function PlayerLayout() {
 
                         <div className="flex flex-col items-center gap-3">
                             <div className="flex items-center gap-6 text-white/80">
-                                <button>⏮</button>
+                                <button onClick={playPrevious}>⏮</button>
                                 <button
                                     onClick={togglePlay}
                                     className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-xl text-black"
                                 >
                                     {isPlaying ? "⏸" : "▶"}
                                 </button>
-                                <button>⏭</button>
+                                <button onClick={playNext}>⏭</button>
                             </div>
 
                             <div className="flex w-[320px] items-center gap-3 text-xs text-white/45">
-                                <span>1:42</span>
-                                <div className="h-1 flex-1 rounded-full bg-white/20">
-                                    <div className="h-1 w-1/2 rounded-full bg-orange-300" />
-                                </div>
-                                <span>3:32</span>
+                                <span>{formatTime(currentTime)}</span>
+
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const clickX = e.clientX - rect.left;
+                                        const ratio = rect.width > 0 ? clickX / rect.width : 0;
+                                        seekTo(ratio * duration);
+                                    }}
+                                    className="h-2 flex-1 rounded-full bg-white/20"
+                                >
+                                    <div
+                                        className="h-2 rounded-full bg-orange-300"
+                                        style={{ width: `${progressPercent}%` }}
+                                    />
+                                </button>
+
+                                <span>{formatTime(duration)}</span>
                             </div>
                         </div>
 
@@ -315,8 +348,12 @@ export default function PlayerLayout() {
                             key={currentTrack.streamUrl}
                             src={currentTrack.streamUrl}
                             autoPlay
+                            controls
                             onPlay={() => setIsPlaying(true)}
                             onPause={() => setIsPlaying(false)}
+                            onLoadedMetadata={setDurationFromAudio}
+                            onTimeUpdate={setCurrentTimeFromAudio}
+                            onEnded={handleEnded}
                             className="hidden"
                         />
                     )}

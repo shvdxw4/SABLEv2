@@ -15,7 +15,7 @@ type HomeState =
     | { status: "ok"; items: ListenerTrack[] };
 
 export default function Home() {
-    const { recentTracks, playTrack, currentTrack } = usePlayer();
+    const { recentTracks, playTrack, currentTrack, setQueueFromTracks } = usePlayer();
     const { isSaved, toggleSavedTrack } = useLibrary();
     const { query } = useSearch();
 
@@ -59,7 +59,18 @@ export default function Home() {
         setStreamLoadingId(track.id);
 
         try {
+            const queueTracks = allItems.map((item) => ({
+                id: item.id,
+                title: item.title,
+                tier: item.tier,
+                artist: "SABLE Sessions",
+            }));
+
+            const startIndex = allItems.findIndex((item) => item.id === track.id);
+            setQueueFromTracks(queueTracks, startIndex);
+
             const url = await fetchTrackStreamUrl(track.id);
+
             playTrack(
                 {
                     id: track.id,
@@ -169,22 +180,74 @@ export default function Home() {
     }
 
     function RecentCard({
-        title,
-        subtitle,
+        track,
     }: {
-        title: string;
-        subtitle?: string;
+        track: {
+            id: number;
+            title: string;
+            tier: string;
+            artist?: string;
+            streamUrl?: string;
+        };
     }) {
+        const isActive = currentTrack?.id === track.id;
+        const saved = isSaved(track.id);
+
         return (
-            <div className="rounded-[1.15rem] border border-white/10 bg-black/20 p-3 backdrop-blur-sm">
-                <div className="aspect-square rounded-[0.95rem] bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.24),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
+            <div className="group relative rounded-[1.15rem] border border-white/10 bg-black/20 p-3 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.05]">
+                <div className="relative aspect-square overflow-hidden rounded-[0.95rem]">
+                    <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.24),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
+
+                    <div className="absolute inset-0 flex items-center justify-center gap-4 bg-black/40 opacity-0 transition group-hover:opacity-100">
+                        <button
+                            type="button"
+                            disabled={!track.streamUrl}
+                            onClick={() => {
+                                if (!track.streamUrl) return;
+                                playTrack(
+                                    {
+                                        id: track.id,
+                                        title: track.title,
+                                        tier: track.tier,
+                                        artist: track.artist || "SABLE Sessions",
+                                    },
+                                    track.streamUrl
+                                );
+                            }}
+                            className={`flex h-12 w-12 items-center justify-center rounded-full text-lg transition ${isActive
+                                ? "bg-white text-black"
+                                : "bg-white/90 text-black hover:scale-105"
+                                } disabled:cursor-not-allowed disabled:opacity-50`}
+                        >
+                            ▶
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                toggleSavedTrack({
+                                    id: track.id,
+                                    title: track.title,
+                                    tier: track.tier,
+                                    artist: track.artist || "SABLE Sessions",
+                                })
+                            }
+                            className={`flex h-10 w-10 items-center justify-center rounded-full text-sm transition ${saved
+                                ? "bg-orange-400/80 text-black"
+                                : "bg-white/80 text-black hover:scale-105"
+                                }`}
+                        >
+                            {saved ? "✓" : "+"}
+                        </button>
+                    </div>
+                </div>
 
                 <div className="mt-4">
                     <p className="truncate text-[1.05rem] font-medium text-white">
-                        {title}
+                        {track.title}
                     </p>
-                    {subtitle && (
-                        <p className="mt-1 text-sm text-white/48">{subtitle}</p>
+                    {track.artist && (
+                        <p className="mt-1 text-sm text-white/48">{track.artist}</p>
                     )}
                 </div>
             </div>
@@ -266,8 +329,7 @@ export default function Home() {
                     recentlyPlayed.map((track) => (
                         <RecentCard
                             key={track.id}
-                            title={track.title}
-                            subtitle={track.artist || track.tier}
+                            track={track}
                         />
                     ))
                 ) : (

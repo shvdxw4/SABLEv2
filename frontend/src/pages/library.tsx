@@ -20,7 +20,7 @@ export default function Library() {
   const [streamError, setStreamError] = useState<Record<number, string>>({});
 
   const { query } = useSearch();
-  const { playTrack, currentTrack } = usePlayer();
+  const { playTrack, currentTrack, setQueueFromTracks } = usePlayer();
   const { isSaved, toggleSavedTrack } = useLibrary();
 
   useEffect(() => {
@@ -59,19 +59,32 @@ export default function Library() {
     setStreamLoadingId(track.id);
 
     try {
+      const queueTracks = filteredItems.map((item) => ({
+        id: item.id,
+        title: item.title,
+        tier: item.tier,
+        artist: "SABLE Sessions",
+      }));
+
+      const startIndex = filteredItems.findIndex((item) => item.id === track.id);
+      setQueueFromTracks(queueTracks, startIndex);
+
       const url = await fetchTrackStreamUrl(track.id);
+
       playTrack(
         {
           id: track.id,
           title: track.title,
           tier: track.tier,
           artist: "SABLE Sessions",
-        }, url);
+        },
+        url
+      );
     } catch (e: any) {
       setStreamError((prev) => ({
         ...prev,
         [track.id]: e?.message ?? "Failed to load stream",
-      }))
+      }));
     } finally {
       setStreamLoadingId(null);
     }

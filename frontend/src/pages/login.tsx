@@ -29,7 +29,7 @@ export default function Login() {
       if (me.role === "creator") {
         navigate("/creator");
       } else {
-        navigate("/library");
+        navigate("/home");
       }
     } catch (err: any) {
       setError(err.message || "Login failed");
