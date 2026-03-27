@@ -1,29 +1,51 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { usePlayer } from "../player/PlayerContext";
+import { useLibrary } from "../library/LibraryContext";
+import { fetchTrackStreamUrl } from "../api/tracks";
+import { useSearch } from "../search/SearchContext";
 
-type LibraryItem = {
-    title: string;
-    meta: string;
-};
-
-const mockLibraryItems: LibraryItem[] = [
-    { title: "Liked Songs", meta: "Playlist • 27 songs" },
-    { title: "Velvet Horizon", meta: "Artist" },
-    { title: "Neon Bloom", meta: "Playlist" },
-    { title: "Solar Nights", meta: "Album" },
-    { title: "Afterglow", meta: "Album" },
-    { title: "Static Heart", meta: "Artist" },
-];
 
 export default function PlayerLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
-    const { currentTrack, isPlaying, togglePlay, audioRef, setIsPlaying } = usePlayer();
+    const {
+        currentTrack,
+        isPlaying,
+        togglePlay,
+        audioRef,
+        setIsPlaying,
+        playTrack,
+    } = usePlayer();
+    const { savedTracks } = useLibrary();
+    const { query, setQuery } = useSearch();
 
     const isHome = location.pathname === "/home";
     const isLibrary = location.pathname === "/library";
+
+    async function handlePlaySavedTrack(track: {
+        id: number;
+        title: string;
+        tier: string;
+        artist?: string;
+    }) {
+        try {
+            const url = await fetchTrackStreamUrl(track.id);
+
+            playTrack(
+                {
+                    id: track.id,
+                    title: track.title,
+                    tier: track.tier,
+                    artist: track.artist,
+                },
+                url
+            );
+        } catch (error) {
+            console.error("Failed to play saved track:", error);
+        }
+    }
 
     return (
         <div className="relative h-screen w-screen overflow-hidden bg-[#050607] text-white">
@@ -44,6 +66,8 @@ export default function PlayerLayout() {
                         <div className="flex flex-1 justify-center">
                             <div className="w-full max-w-[520px]">
                                 <input
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
                                     placeholder="What do you want to play?"
                                     className="w-full rounded-full bg-white/[0.08] px-6 py-3 text-sm outline-none placeholder:text-white/40"
                                 />
@@ -138,22 +162,36 @@ export default function PlayerLayout() {
                                     </div>
 
                                     <div className="mt-4 space-y-2">
-                                        {mockLibraryItems.map((item) => (
-                                            <button
-                                                key={item.title}
-                                                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-white/[0.05]"
-                                            >
-                                                <div className="h-12 w-12 shrink-0 rounded-lg bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.22),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
-                                                <div className="min-w-0">
-                                                    <p className="truncate text-sm font-medium text-white">
-                                                        {item.title}
-                                                    </p>
-                                                    <p className="truncate text-xs text-white/45">
-                                                        {item.meta}
-                                                    </p>
-                                                </div>
-                                            </button>
-                                        ))}
+                                        {savedTracks.length > 0 ? (
+                                            savedTracks.map((item) => {
+                                                const isActive = currentTrack?.id === item.id;
+
+                                                return (
+                                                    <button
+                                                        key={item.id}
+                                                        onClick={() => handlePlaySavedTrack(item)}
+                                                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${isActive
+                                                            ? "bg-white/[0.10] ring-1 ring-white/15"
+                                                            : "hover:bg-white/[0.05]"
+                                                            }`}
+                                                    >
+                                                        <div className="h-12 w-12 shrink-0 rounded-lg bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.22),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
+                                                        <div className="min-w-0">
+                                                            <p className="truncate text-sm font-medium text-white">
+                                                                {item.title}
+                                                            </p>
+                                                            <p className="truncate text-xs text-white/45">
+                                                                {item.artist || item.tier}
+                                                            </p>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-4 text-sm text-white/45">
+                                                Saved tracks will appear here.
+                                            </div>
+                                        )}
                                     </div>
                                 </>
                             )}

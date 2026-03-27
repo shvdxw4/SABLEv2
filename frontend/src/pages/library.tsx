@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePlayer } from "../player/PlayerContext";
 import { useLibrary } from "../library/LibraryContext";
+import { useSearch } from "../search/SearchContext";
 import {
   fetchTracks,
   fetchTrackStreamUrl,
@@ -15,10 +16,10 @@ type LibraryState =
 
 export default function Library() {
   const [state, setState] = useState<LibraryState>({ status: "loading" });
-  const [query, setQuery] = useState("");
   const [streamLoadingId, setStreamLoadingId] = useState<number | null>(null);
   const [streamError, setStreamError] = useState<Record<number, string>>({});
 
+  const { query } = useSearch();
   const { playTrack, currentTrack } = usePlayer();
   const { isSaved, toggleSavedTrack } = useLibrary();
 
@@ -139,7 +140,14 @@ export default function Library() {
 
           <button
             type="button"
-            onClick={() => toggleSavedTrack(track.id)}
+            onClick={() =>
+              toggleSavedTrack({
+                id: track.id,
+                title: track.title,
+                tier: track.tier,
+                artist: "SABLE Sessions",
+              })
+            }
             className={`flex w-full items-center justify-center rounded-full px-4 py-2.5 text-sm font-medium transition ${saved
               ? "bg-white text-black"
               : "border border-white/10 bg-white/[0.03] text-white hover:border-white/20 hover:bg-white/[0.08]"
@@ -208,18 +216,6 @@ export default function Library() {
           <button className="text-sm text-white/55 transition hover:text-white/80">
             Recents
           </button>
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white/55">
-          <span>⌕</span>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search in Your Library"
-            className="w-full bg-transparent outline-none placeholder:text-white/35"
-          />
         </div>
       </div>
 

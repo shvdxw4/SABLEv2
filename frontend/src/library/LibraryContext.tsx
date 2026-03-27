@@ -1,32 +1,39 @@
 import { createContext, useContext, useState } from "react";
 
+export type SavedTrack = {
+    id: number;
+    title: string;
+    tier: string;
+    artist?: string;
+};
+
 type LibraryContextType = {
-    savedTrackIds: number[];
+    savedTracks: SavedTrack[];
     isSaved: (trackId: number) => boolean;
-    toggleSavedTrack: (trackId: number) => void;
+    toggleSavedTrack: (track: SavedTrack) => void;
 };
 
 const LibraryContext = createContext<LibraryContextType | null>(null);
 
 export function LibraryProvider({ children }: { children: React.ReactNode }) {
-    const [savedTrackIds, setSavedTrackIds] = useState<number[]>([]);
+    const [savedTracks, setSavedTracks] = useState<SavedTrack[]>([]);
 
     function isSaved(trackId: number) {
-        return savedTrackIds.includes(trackId);
+        return savedTracks.some((track) => track.id === trackId);
     }
 
-    function toggleSavedTrack(trackId: number) {
-        setSavedTrackIds((prev) =>
-            prev.includes(trackId)
-                ? prev.filter((id) => id !== trackId)
-                : [...prev, trackId]
+    function toggleSavedTrack(track: SavedTrack) {
+        setSavedTracks((prev) =>
+            prev.some((t) => t.id === track.id)
+                ? prev.filter((t) => t.id !== track.id)
+                : [track, ...prev]
         );
     }
 
     return (
         <LibraryContext.Provider
             value={{
-                savedTrackIds,
+                savedTracks,
                 isSaved,
                 toggleSavedTrack,
             }}

@@ -6,6 +6,7 @@ import App from "./App.tsx";
 import { AuthProvider } from "./auth/AuthContext";
 import { PlayerProvider } from "./player/PlayerContext.tsx";
 import { LibraryProvider } from "./library/LibraryContext.tsx";
+import { SearchProvider } from "./search/SearchContext.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -13,7 +14,9 @@ createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <PlayerProvider>
           <LibraryProvider>
-            <App />
+            <SearchProvider>
+              <App />
+            </SearchProvider>
           </LibraryProvider>
         </PlayerProvider>
       </AuthProvider>
