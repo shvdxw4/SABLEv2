@@ -17,12 +17,18 @@ export default function PlayerLayout() {
         audioRef,
         setIsPlaying,
         playTrack,
+        recentTracks,
     } = usePlayer();
+
     const { savedTracks } = useLibrary();
     const { query, setQuery } = useSearch();
 
     const isHome = location.pathname === "/home";
     const isLibrary = location.pathname === "/library";
+    const nextQueueTrack =
+        recentTracks.find((track) => track.id !== currentTrack?.id) ||
+        savedTracks.find((track) => track.id !== currentTrack?.id) ||
+        null;
 
     async function handlePlaySavedTrack(track: {
         id: number;
@@ -213,30 +219,24 @@ export default function PlayerLayout() {
                                 <p className="mt-1 text-white/55">
                                     {currentTrack?.artist || "SABLE"}
                                 </p>
-
-                                {currentTrack?.tier && (
-                                    <div className="mt-4">
-                                        <span
-                                            className={`rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] ${currentTrack.tier === "SUBSCRIBER"
-                                                ? "bg-orange-400/15 text-orange-300"
-                                                : "bg-white/10 text-white/70"
-                                                }`}
-                                        >
-                                            {currentTrack.tier}
-                                        </span>
-                                    </div>
-                                )}
                             </div>
 
                             <div className="mt-8">
                                 <h3 className="text-sm font-medium uppercase tracking-[0.16em] text-white/45">
                                     Credits
                                 </h3>
-                                <div className="mt-4 space-y-3 text-sm text-white/68">
-                                    <p>Produced by Night Engine</p>
-                                    <p>Written by Aria Nova</p>
-                                    <p>Mastered by Sunset Archive</p>
-                                </div>
+
+                                {currentTrack ? (
+                                    <div className="mt-4 space-y-3 text-sm text-white/68">
+                                        <p>Written by {currentTrack.artist || "SABLE Sessions"}</p>
+                                        <p>Produced by SABLE Sessions</p>
+                                        <p>Mastered by SABLE</p>
+                                    </div>
+                                ) : (
+                                    <p className="mt-4 text-sm text-white/45">
+                                        Play a track to view credits.
+                                    </p>
+                                )}
                             </div>
 
                             <div className="mt-8">
@@ -244,15 +244,23 @@ export default function PlayerLayout() {
                                     Next in queue
                                 </h3>
 
-                                <div className="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                                    <div className="h-14 w-14 rounded-lg bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.22),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-medium text-white">
-                                            Echo Bloom
-                                        </p>
-                                        <p className="text-xs text-white/45">Luma</p>
+                                {nextQueueTrack ? (
+                                    <div className="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                                        <div className="h-14 w-14 rounded-lg bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.22),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-medium text-white">
+                                                {nextQueueTrack.title}
+                                            </p>
+                                            <p className="text-xs text-white/45">
+                                                {nextQueueTrack.artist || "SABLE"}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <p className="mt-4 text-sm text-white/45">
+                                        Queue is empty.
+                                    </p>
+                                )}
                             </div>
                         </aside>
                     </div>
