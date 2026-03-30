@@ -1,15 +1,19 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePlayer } from "../player/PlayerContext";
 import { useLibrary } from "../library/LibraryContext";
 import { fetchTrackStreamUrl } from "../api/tracks";
 import { useSearch } from "../search/SearchContext";
-
+import { useAuth } from "../auth/AuthContext";
 
 export default function PlayerLayout() {
     const [collapsed, setCollapsed] = useState(false);
+    const [accountOpen, setAccountOpen] = useState(false);
+
     const navigate = useNavigate();
     const location = useLocation();
+    const accountMenuRef = useRef<HTMLDivElement | null>(null);
+
     const {
         currentTrack,
         isPlaying,
@@ -17,7 +21,6 @@ export default function PlayerLayout() {
         audioRef,
         setIsPlaying,
         playTrack,
-        recentTracks,
         playNext,
         playPrevious,
         currentTime,
@@ -32,11 +35,13 @@ export default function PlayerLayout() {
 
     const { savedTracks } = useLibrary();
     const { query, setQuery } = useSearch();
+    const { user, logout } = useAuth();
 
     const isHome = location.pathname === "/home";
     const isLibrary = location.pathname === "/library";
+
     const nextQueueTrack =
-        queue.length > 0 && currentIndex + 1 < queue.length - 1
+        queue.length > 0 && currentIndex + 1 < queue.length
             ? queue[currentIndex + 1]
             : null;
 
@@ -72,7 +77,30 @@ export default function PlayerLayout() {
         return `${minutes}:${seconds.toString().padStart(2, "0")}`;
     }
 
-    const progressPercent = duration > 0 ? Math.min((currentTime / duration) * 100, 100) : 0;
+    const progressPercent =
+        duration > 0 ? Math.min((currentTime / duration) * 100, 100) : 0;
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (
+                accountMenuRef.current &&
+                !accountMenuRef.current.contains(event.target as Node)
+            ) {
+                setAccountOpen(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    function handleLogout() {
+        setAccountOpen(false);
+        logout();
+        navigate("/");
+    }
 
     return (
         <div className="relative h-screen w-screen overflow-hidden bg-[#050607] text-white">
@@ -101,7 +129,70 @@ export default function PlayerLayout() {
                             </div>
                         </div>
 
-                        <div className="w-[48px]" />
+                        <div className="relative z-50" ref={accountMenuRef}>
+                            <button
+                                type="button"
+                                onClick={() => setAccountOpen((prev) => !prev)}
+                                className="flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.08] text-sm font-medium text-white transition hover:bg-white/[0.14]"
+                            >
+                                {user?.username?.slice(0, 1).toUpperCase() || "U"}
+                            </button>
+
+                            {accountOpen && (
+                                <div className="absolute right-0 z-50 mt-3 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#111315] shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+                                    <div className="border-b border-white/8 px-4 py-3">
+                                        <p className="text-sm font-medium text-white">
+                                            {user?.username || "User"}
+                                        </p>
+                                        <p className="mt-1 text-xs text-white/45">
+                                            {user?.email || "Signed in"}
+                                        </p>
+                                    </div>
+
+                                    <div className="p-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                navigate("/home");
+                                                setAccountOpen(false);
+                                            }}
+                                            className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-white/75 transition hover:bg-white/[0.06] hover:text-white"
+                                        >
+                                            Home
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                navigate("/library");
+                                                setAccountOpen(false);
+                                            }}
+                                            className="mt-1 flex w-full rounded-xl px-3 py-2 text-left text-sm text-white/75 transition hover:bg-white/[0.06] hover:text-white"
+                                        >
+                                            Library
+                                        </button>
+
+                                        <div className="mt-1 rounded-xl px-3 py-2 text-left text-sm text-white/35">
+                                            Account settings — soon
+                                        </div>
+
+                                        <div className="mt-1 rounded-xl px-3 py-2 text-left text-sm text-white/35">
+                                            Manage plan — soon
+                                        </div>
+
+                                        <div className="my-2 border-t border-white/8" />
+
+                                        <button
+                                            type="button"
+                                            onClick={handleLogout}
+                                            className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-red-300 transition hover:bg-red-400/10 hover:text-red-200"
+                                        >
+                                            Logout
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -116,9 +207,13 @@ export default function PlayerLayout() {
                             <div className="flex items-center justify-between">
                                 {!collapsed ? (
                                     <>
-                                        <h2 className="text-[1.55rem] font-semibold tracking-tight">
-                                            Your Library
-                                        </h2>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate("/library")}
+                                            className="text-left text-[1.55rem] font-semibold tracking-tight transition hover:text-white/80"
+                                        >
+                                            Library
+                                        </button>
 
                                         <button
                                             onClick={() => setCollapsed(true)}
@@ -139,7 +234,10 @@ export default function PlayerLayout() {
                                 )}
                             </div>
 
-                            <div className={`mt-6 ${collapsed ? "space-y-3" : "flex flex-wrap gap-3"}`}>
+                            <div
+                                className={`mt-6 ${collapsed ? "space-y-3" : "flex flex-wrap gap-3"
+                                    }`}
+                            >
                                 {collapsed ? (
                                     <>
                                         <button
@@ -161,21 +259,14 @@ export default function PlayerLayout() {
                                         >
                                             ☰
                                         </button>
-
-                                        <button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.06] text-white/80 transition hover:bg-white/[0.1]">
-                                            ♥
-                                        </button>
                                     </>
                                 ) : (
                                     <>
                                         <button className="rounded-full bg-white px-4 py-2 text-sm font-medium text-black">
-                                            All
+                                            Saved
                                         </button>
                                         <button className="rounded-full bg-white/[0.06] px-4 py-2 text-sm font-medium text-white/75">
-                                            Artists
-                                        </button>
-                                        <button className="rounded-full bg-white/[0.06] px-4 py-2 text-sm font-medium text-white/75">
-                                            Albums
+                                            Tracks
                                         </button>
                                     </>
                                 )}
@@ -184,8 +275,8 @@ export default function PlayerLayout() {
                             {!collapsed && (
                                 <>
                                     <div className="mt-6 flex items-center justify-between text-sm text-white/45">
-                                        <span>Recents</span>
-                                        <span>☰</span>
+                                        <span>Saved Tracks</span>
+                                        <span>{savedTracks.length}</span>
                                     </div>
 
                                     <div className="mt-4 space-y-2">
@@ -208,7 +299,7 @@ export default function PlayerLayout() {
                                                                 {item.title}
                                                             </p>
                                                             <p className="truncate text-xs text-white/45">
-                                                                {item.artist || item.tier}
+                                                                {item.artist || "SABLE"}
                                                             </p>
                                                         </div>
                                                     </button>
@@ -269,7 +360,7 @@ export default function PlayerLayout() {
                                     <button
                                         type="button"
                                         onClick={() => playNext()}
-                                        className="mt-4 flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition hover:bg-white/[0.06]"
+                                        className="mt-4 flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left transition hover:bg-white/[0.06]"
                                     >
                                         <div className="h-14 w-14 rounded-lg bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.22),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
                                         <div className="min-w-0">
@@ -282,9 +373,7 @@ export default function PlayerLayout() {
                                         </div>
                                     </button>
                                 ) : (
-                                    <p className="mt-4 text-sm text-white/45">
-                                        Queue is empty.
-                                    </p>
+                                    <p className="mt-4 text-sm text-white/45">Queue is empty.</p>
                                 )}
                             </div>
                         </aside>
@@ -354,7 +443,6 @@ export default function PlayerLayout() {
                             key={currentTrack.streamUrl}
                             src={currentTrack.streamUrl}
                             autoPlay
-                            controls
                             onPlay={() => setIsPlaying(true)}
                             onPause={() => setIsPlaying(false)}
                             onLoadedMetadata={setDurationFromAudio}
@@ -364,7 +452,7 @@ export default function PlayerLayout() {
                         />
                     )}
                 </div>
-            </div >
-        </div >
+            </div>
+        </div>
     );
 }

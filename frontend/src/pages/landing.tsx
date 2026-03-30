@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import heroImage from "../assets/hero.png";
 
@@ -37,6 +38,17 @@ const logos = [
 export default function Landing() {
   const { user } = useAuth();
   const isLoggedIn = Boolean(user);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) return;
+
+    if (user.role === "creator") {
+      navigate("/creator", { replace: true });
+    } else {
+      navigate("/home", { replace: true });
+    }
+  }, [user, navigate]);
 
   return (
     <div className="min-h-screen bg-[#050607] text-white">
