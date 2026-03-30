@@ -26,6 +26,8 @@ export default function PlayerLayout() {
         setCurrentTimeFromAudio,
         seekTo,
         handleEnded,
+        queue,
+        currentIndex,
     } = usePlayer();
 
     const { savedTracks } = useLibrary();
@@ -34,9 +36,9 @@ export default function PlayerLayout() {
     const isHome = location.pathname === "/home";
     const isLibrary = location.pathname === "/library";
     const nextQueueTrack =
-        recentTracks.find((track) => track.id !== currentTrack?.id) ||
-        savedTracks.find((track) => track.id !== currentTrack?.id) ||
-        null;
+        queue.length > 0 && currentIndex + 1 < queue.length - 1
+            ? queue[currentIndex + 1]
+            : null;
 
     async function handlePlaySavedTrack(track: {
         id: number;
@@ -264,7 +266,11 @@ export default function PlayerLayout() {
                                 </h3>
 
                                 {nextQueueTrack ? (
-                                    <div className="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => playNext()}
+                                        className="mt-4 flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition hover:bg-white/[0.06]"
+                                    >
                                         <div className="h-14 w-14 rounded-lg bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.22),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
                                         <div className="min-w-0">
                                             <p className="truncate text-sm font-medium text-white">
@@ -274,7 +280,7 @@ export default function PlayerLayout() {
                                                 {nextQueueTrack.artist || "SABLE"}
                                             </p>
                                         </div>
-                                    </div>
+                                    </button>
                                 ) : (
                                     <p className="mt-4 text-sm text-white/45">
                                         Queue is empty.
@@ -358,7 +364,7 @@ export default function PlayerLayout() {
                         />
                     )}
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

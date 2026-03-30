@@ -193,6 +193,31 @@ export default function Home() {
         const isActive = currentTrack?.id === track.id;
         const saved = isSaved(track.id);
 
+        async function handleRecentPlay() {
+            setStreamError((prev) => ({ ...prev, [track.id]: "" }));
+            setStreamLoadingId(track.id);
+
+            try {
+                const url = await fetchTrackStreamUrl(track.id);
+                playTrack(
+                    {
+                        id: track.id,
+                        title: track.title,
+                        tier: track.tier,
+                        artist: track.artist || "SABLE Sessions",
+                    },
+                    url
+                );
+            } catch (e: any) {
+                setStreamError((prev) => ({
+                    ...prev,
+                    [track.id]: e?.message ?? "Failed to load stream",
+                }));
+            } finally {
+                setStreamLoadingId(null);
+            }
+        }
+
         return (
             <div className="group relative rounded-[1.15rem] border border-white/10 bg-black/20 p-3 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.05]">
                 <div className="relative aspect-square overflow-hidden rounded-[0.95rem]">
@@ -201,25 +226,14 @@ export default function Home() {
                     <div className="absolute inset-0 flex items-center justify-center gap-4 bg-black/40 opacity-0 transition group-hover:opacity-100">
                         <button
                             type="button"
-                            disabled={!track.streamUrl}
-                            onClick={() => {
-                                if (!track.streamUrl) return;
-                                playTrack(
-                                    {
-                                        id: track.id,
-                                        title: track.title,
-                                        tier: track.tier,
-                                        artist: track.artist || "SABLE Sessions",
-                                    },
-                                    track.streamUrl
-                                );
-                            }}
+                            disabled={streamLoadingId === track.id}
+                            onClick={handleRecentPlay}
                             className={`flex h-12 w-12 items-center justify-center rounded-full text-lg transition ${isActive
                                 ? "bg-white text-black"
                                 : "bg-white/90 text-black hover:scale-105"
                                 } disabled:cursor-not-allowed disabled:opacity-50`}
                         >
-                            ▶
+                            {streamLoadingId === track.id ? "…" : "▶"}
                         </button>
 
                         <button
@@ -248,6 +262,10 @@ export default function Home() {
                     </p>
                     {track.artist && (
                         <p className="mt-1 text-sm text-white/48">{track.artist}</p>
+                    )}
+
+                    {streamError[track.id] && (
+                        <p className="mt-2 text-xs text-red-400">{streamError[track.id]}</p>
                     )}
                 </div>
             </div>
