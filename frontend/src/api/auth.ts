@@ -10,6 +10,7 @@ export type MeResponse = {
   email: string;
   username: string;
   role: string;
+  subscription_status?: string | null;
 };
 
 const TOKEN_KEY = "access_token";

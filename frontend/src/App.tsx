@@ -11,6 +11,10 @@ import CreatorSignup from "./pages/creator-signup";
 import PlayerLayout from "./layouts/PlayerLayout";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import { useAuth } from "./auth/AuthContext";
+import ManagePlan from "./pages/manage-plan";
+import Upgrade from "./pages/upgrade";
+import BillingSuccess from "./pages/billing-success";
+import BillingCancel from "./pages/billing-cancel";
 
 function StandardShell({
   children,
@@ -160,6 +164,38 @@ function AppShell() {
                 element={
                   <ProtectedRoute requireCreator>
                     <Upload />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/upgrade"
+                element={
+                  <ProtectedRoute>
+                    <Upgrade />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/manage-plan"
+                element={
+                  <ProtectedRoute>
+                    <ManagePlan />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/billing/success"
+                element={
+                  <ProtectedRoute>
+                    <BillingSuccess />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/billing/cancel"
+                element={
+                  <ProtectedRoute>
+                    <BillingCancel />
                   </ProtectedRoute>
                 }
               />

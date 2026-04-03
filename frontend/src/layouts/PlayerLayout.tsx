@@ -176,9 +176,15 @@ export default function PlayerLayout() {
                                             Account settings — soon
                                         </div>
 
-                                        <div className="mt-1 rounded-xl px-3 py-2 text-left text-sm text-white/35">
-                                            Manage plan — soon
-                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                navigate("/manage-plan");
+                                                setAccountOpen(false);
+                                            }}
+                                            className="mt-1 flex w-full rounded-xl px-3 py-2 text-left text-sm text-white/75 transition hover:bg-white/[0.06] hover:text-white">
+                                            Manage Plan
+                                        </button>
 
                                         <div className="my-2 border-t border-white/8" />
 

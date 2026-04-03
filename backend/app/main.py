@@ -1,3 +1,5 @@
+import token
+
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.db import engine
@@ -38,6 +40,7 @@ class UserOut(BaseModel):
     email: EmailStr
     username: str
     role: str
+    subscription_status: str | None = None
 
 
 class CreatorTrackCreateIn(BaseModel):
@@ -386,11 +389,18 @@ def me(authorization: str | None = Header(default=None)):
             conn.execute(
                 text(
                     """
-                SELECT id, email, username, role
-                FROM users
-                WHERE id = :id
-                LIMIT 1;
-            """
+                    SELECT
+                        u.id,
+                        u.email,
+                        u.username,
+                        u.role,
+                        s.status AS subscription_status
+                    FROM users u
+                    LEFT JOIN subscriptions s
+                        ON s.user_id = u.id
+                    WHERE u.id = :id
+                    LIMIT 1;
+                    """
                 ),
                 {"id": user_id},
             )
@@ -929,7 +939,7 @@ def billing_success(session_id: str, authorization: str | None = Header(default=
     s = _stripe()
 
     session = s.checkout.Session.retrieve(session_id, expand=["subscription"])
-    # Basic verification checks (Tier-1)
+
     if session.get("client_reference_id") != str(user["id"]):
         raise HTTPException(
             status_code=403, detail="Session does not belong to this user"
@@ -938,25 +948,43 @@ def billing_success(session_id: str, authorization: str | None = Header(default=
     if session.get("payment_status") not in {"paid", "no_payment_required"}:
         raise HTTPException(status_code=400, detail="Payment not completed")
 
-    # subscription object exists in subscription mode
     stripe_sub = session.get("subscription")
     if not stripe_sub:
         raise HTTPException(status_code=400, detail="No subscription found on session")
+
+    stripe_subscription_id = (
+        stripe_sub.get("id") if isinstance(stripe_sub, dict) else stripe_sub.id
+    )
 
     with engine.begin() as conn:
         conn.execute(
             text(
                 """
-                INSERT INTO subscriptions (user_id, status, stripe_customer_id, stripe_session_id, started_at, expires_at)
-                VALUES (:uid, 'ACTIVE', :cust, :sid, NOW(), NULL)
+                INSERT INTO subscriptions (
+                    user_id,
+                    status,
+                    stripe_customer_id,
+                    stripe_session_id,
+                    stripe_subscription_id,
+                    started_at,
+                    expires_at
+                )
+                VALUES (:uid, 'ACTIVE', :cust, :sid, :sub_id, NOW(), NULL)
                 ON CONFLICT (user_id)
-                DO UPDATE SET status='ACTIVE', stripe_customer_id=:cust, stripe_session_id=:sid, started_at=NOW(), expires_at=NULL;
-            """
+                DO UPDATE SET
+                    status='ACTIVE',
+                    stripe_customer_id=:cust,
+                    stripe_session_id=:sid,
+                    stripe_subscription_id=:sub_id,
+                    started_at=NOW(),
+                    expires_at=NULL;
+                """
             ),
             {
                 "uid": int(user["id"]),
                 "cust": session.get("customer"),
                 "sid": session.id,
+                "sub_id": stripe_subscription_id,
             },
         )
 
@@ -966,6 +994,67 @@ def billing_success(session_id: str, authorization: str | None = Header(default=
 @app.get("/billing/cancel")
 def billing_cancel():
     return {"ok": True, "status": "canceled"}
+
+
+@app.post("/billing/cancel-subscription")
+def billing_cancel_subscription(authorization: str | None = Header(default=None)):
+    user = get_current_user(authorization)
+
+    with engine.begin() as conn:
+        sub = (
+            conn.execute(
+                text(
+                    """
+                    SELECT stripe_subscription_id, status
+                    FROM subscriptions
+                    WHERE user_id = :uid
+                    LIMIT 1;
+                    """
+                ),
+                {"uid": int(user["id"])},
+            )
+            .mappings()
+            .first()
+        )
+
+    if not sub:
+        raise HTTPException(status_code=404, detail="No subscription found")
+
+    if not sub["stripe_subscription_id"]:
+        raise HTTPException(
+            status_code=400,
+            detail="No Stripe subscription id found for this user",
+        )
+
+    s = _stripe()
+
+    try:
+        s.Subscription.modify(
+            sub["stripe_subscription_id"],
+            cancel_at_period_end=True,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"Stripe cancellation failed: {str(e)}"
+        )
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                UPDATE subscriptions
+                SET status = 'CANCELED'
+                WHERE user_id = :uid;
+                """
+            ),
+            {"uid": int(user["id"])},
+        )
+
+    return {
+        "ok": True,
+        "status": "CANCELED",
+        "cancel_at_period_end": True,
+    }
 
 
 @app.post("/offline/manifest")
