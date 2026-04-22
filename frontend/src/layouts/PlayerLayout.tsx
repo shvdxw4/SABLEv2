@@ -31,6 +31,7 @@ export default function PlayerLayout() {
         handleEnded,
         queue,
         currentIndex,
+        resetPlayer,
     } = usePlayer();
 
     const { savedTracks } = useLibrary();
@@ -100,6 +101,7 @@ export default function PlayerLayout() {
 
     function handleLogout() {
         setAccountOpen(false);
+        resetPlayer();
         logout();
         navigate("/");
     }
@@ -315,8 +317,8 @@ export default function PlayerLayout() {
                                                                 <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.22),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
                                                             )}
                                                         </div>
-                                                        
-                                                            <div className="min-w-0">
+
+                                                        <div className="min-w-0">
                                                             <p className="truncate text-sm font-medium text-white">
                                                                 {item.title}
                                                             </p>
@@ -355,7 +357,7 @@ export default function PlayerLayout() {
                                     <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.25),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.55))]" />
                                 )}
                             </div>
-                            
+
                             <div className="mt-5">
                                 <p className="text-[1.8rem] font-semibold">
                                     {currentTrack?.title || "Nothing Playing"}
@@ -405,8 +407,8 @@ export default function PlayerLayout() {
                                                 <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.22),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
                                             )}
                                         </div>
-                                        
-                                            <div className="min-w-0">
+
+                                        <div className="min-w-0">
                                             <p className="truncate text-sm font-medium text-white">
                                                 {nextQueueTrack.title}
                                             </p>
@@ -427,16 +429,16 @@ export default function PlayerLayout() {
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                         <div className="flex items-center gap-4">
                             <div className="h-14 w-14 rounded-xl">
-                               {currentTrack?.artwork_url ? (
+                                {currentTrack?.artwork_url ? (
                                     <img
                                         src={currentTrack.artwork_url}
                                         alt={currentTrack.title}
                                         className="h-full w-full object-cover"
                                     />
-                                ) : ( 
+                                ) : (
                                     <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.25),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.55))]" />
                                 )}
-                            </div>    
+                            </div>
                             <div>
                                 <p className="font-medium text-white">
                                     {currentTrack?.title || "Nothing Playing"}

@@ -33,6 +33,7 @@ type PlayerContextType = {
     setCurrentTimeFromAudio: () => void;
     seekTo: (time: number) => void;
     handleEnded: () => Promise<void>;
+    resetPlayer: () => void;
 };
 
 const PlayerContext = createContext<PlayerContextType | null>(null);
@@ -154,6 +155,20 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         await playNext();
     }
 
+    function resetPlayer() {
+        const audio = audioRef.current;
+        if (audio) {
+            audio.pause();
+            audio.currentTime = 0;
+        }
+        setCurrentTrack(null);
+        setIsPlaying(false);
+        setQueue([]);
+        setCurrentIndex(0);
+        setCurrentTime(0);
+        setDuration(0);
+    }
+
     return (
         <PlayerContext.Provider
             value={{
@@ -175,6 +190,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 setCurrentTimeFromAudio,
                 seekTo,
                 handleEnded,
+                resetPlayer,
             }}
         >
             {children}
