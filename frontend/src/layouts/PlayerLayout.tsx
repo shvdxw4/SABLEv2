@@ -50,6 +50,7 @@ export default function PlayerLayout() {
         title: string;
         tier: string;
         artist?: string;
+        artwork_url?: string | null;
     }) {
         try {
             const url = await fetchTrackStreamUrl(track.id);
@@ -60,6 +61,7 @@ export default function PlayerLayout() {
                     title: track.title,
                     tier: track.tier,
                     artist: track.artist,
+                    artwork_url: track.artwork_url,
                 },
                 url
             );
@@ -269,10 +271,13 @@ export default function PlayerLayout() {
                                 ) : (
                                     <>
                                         <button className="rounded-full bg-white px-4 py-2 text-sm font-medium text-black">
-                                            Saved
+                                            Playlists
                                         </button>
                                         <button className="rounded-full bg-white/[0.06] px-4 py-2 text-sm font-medium text-white/75">
-                                            Tracks
+                                            Artists
+                                        </button>
+                                        <button className="rounded-full bg-white/[0.06] px-4 py-2 text-sm font-medium text-white/75">
+                                            Albums
                                         </button>
                                     </>
                                 )}
@@ -299,8 +304,19 @@ export default function PlayerLayout() {
                                                             : "hover:bg-white/[0.05]"
                                                             }`}
                                                     >
-                                                        <div className="h-12 w-12 shrink-0 rounded-lg bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.22),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
-                                                        <div className="min-w-0">
+                                                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+                                                            {item.artwork_url ? (
+                                                                <img
+                                                                    src={item.artwork_url}
+                                                                    alt={item.title}
+                                                                    className="block h-full w-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.22),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
+                                                            )}
+                                                        </div>
+                                                        
+                                                            <div className="min-w-0">
                                                             <p className="truncate text-sm font-medium text-white">
                                                                 {item.title}
                                                             </p>
@@ -328,8 +344,18 @@ export default function PlayerLayout() {
                         <aside className="min-h-0 overflow-y-auto scroll-hidden rounded-[1.7rem] border border-white/10 bg-black/20 p-6 backdrop-blur-md xl:p-8">
                             <p className="text-sm text-white/45">Now Playing</p>
 
-                            <div className="mt-4 aspect-square rounded-[1.25rem] bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.25),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.55))]" />
-
+                            <div className="mt-4 aspect-square rounded-[1.25rem]">
+                                {currentTrack?.artwork_url ? (
+                                    <img
+                                        src={currentTrack.artwork_url}
+                                        alt={currentTrack.title}
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.25),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.55))]" />
+                                )}
+                            </div>
+                            
                             <div className="mt-5">
                                 <p className="text-[1.8rem] font-semibold">
                                     {currentTrack?.title || "Nothing Playing"}
@@ -368,8 +394,19 @@ export default function PlayerLayout() {
                                         onClick={() => playNext()}
                                         className="mt-4 flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left transition hover:bg-white/[0.06]"
                                     >
-                                        <div className="h-14 w-14 rounded-lg bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.22),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
-                                        <div className="min-w-0">
+                                        <div className="h-14 w-14 overflow-hidden rounded-lg">
+                                            {nextQueueTrack?.artwork_url ? (
+                                                <img
+                                                    src={nextQueueTrack.artwork_url}
+                                                    alt={nextQueueTrack.title}
+                                                    className="h-full w-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.22),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
+                                            )}
+                                        </div>
+                                        
+                                            <div className="min-w-0">
                                             <p className="truncate text-sm font-medium text-white">
                                                 {nextQueueTrack.title}
                                             </p>
@@ -389,8 +426,17 @@ export default function PlayerLayout() {
                 <div className="border-t border-white/8 bg-black/70 px-5 py-4 backdrop-blur-xl">
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                         <div className="flex items-center gap-4">
-                            <div className="h-14 w-14 rounded-xl bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.25),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.55))]" />
-
+                            <div className="h-14 w-14 rounded-xl">
+                               {currentTrack?.artwork_url ? (
+                                    <img
+                                        src={currentTrack.artwork_url}
+                                        alt={currentTrack.title}
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : ( 
+                                    <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.25),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.55))]" />
+                                )}
+                            </div>    
                             <div>
                                 <p className="font-medium text-white">
                                     {currentTrack?.title || "Nothing Playing"}
@@ -402,15 +448,30 @@ export default function PlayerLayout() {
                         </div>
 
                         <div className="flex flex-col items-center gap-3">
-                            <div className="flex items-center gap-6 text-white/80">
-                                <button onClick={playPrevious}>⏮</button>
+                            <div className="flex items-center gap-3">
                                 <button
+                                    type="button"
+                                    onClick={playPrevious}
+                                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-sm text-white/80 transition hover:bg-white/[0.08] hover:text-white"
+                                >
+                                    ⏮
+                                </button>
+
+                                <button
+                                    type="button"
                                     onClick={togglePlay}
-                                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-xl text-black"
+                                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-lg text-black transition hover:scale-[1.02]"
                                 >
                                     {isPlaying ? "⏸" : "▶"}
                                 </button>
-                                <button onClick={playNext}>⏭</button>
+
+                                <button
+                                    type="button"
+                                    onClick={playNext}
+                                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-sm text-white/80 transition hover:bg-white/[0.08] hover:text-white"
+                                >
+                                    ⏭
+                                </button>
                             </div>
 
                             <div className="flex w-[320px] items-center gap-3 text-xs text-white/45">
@@ -436,10 +497,25 @@ export default function PlayerLayout() {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4 text-white/60">
-                            <button>☷</button>
-                            <button>⌕</button>
-                            <button>🔊</button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-xs text-white/70 transition hover:bg-white/[0.08] hover:text-white"
+                            >
+                                ☷
+                            </button>
+                            <button
+                                type="button"
+                                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-xs text-white/70 transition hover:bg-white/[0.08] hover:text-white"
+                            >
+                                ⌕
+                            </button>
+                            <button
+                                type="button"
+                                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-xs text-white/70 transition hover:bg-white/[0.08] hover:text-white"
+                            >
+                                🔊
+                            </button>
                         </div>
                     </div>
 

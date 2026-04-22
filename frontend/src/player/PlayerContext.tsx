@@ -7,6 +7,7 @@ export type PlayerTrack = {
     tier: string;
     artist?: string;
     streamUrl?: string;
+    artwork_url?: string | null;
 };
 
 type PlayerContextType = {
@@ -54,6 +55,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             ...track,
             streamUrl: url,
             artist: track.artist ?? "SABLE Sessions",
+            artwork_url: track.artwork_url ?? null,
         };
 
         setCurrentTrack(newTrack);

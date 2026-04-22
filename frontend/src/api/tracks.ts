@@ -8,6 +8,8 @@ export type ListenerTrack = {
     state: string;
     creator_id: number;
     published_at: string | null;
+    artwork_s3_key?: string | null;
+    artwork_url?: string | null;
 };
 
 function authHeaders(): HeadersInit {

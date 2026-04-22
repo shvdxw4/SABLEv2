@@ -782,13 +782,20 @@ def list_tracks(authorization: str | None = Header(default=None)):
             conn.execute(
                 text(
                     """
-                SELECT t.id, t.title, t.tier, t.state, t.creator_id, t.published_at
-                FROM tracks t
-                WHERE t.state = :published
-                  AND t.tier = ANY(:tiers)
-                ORDER BY t.published_at DESC NULLS LAST, t.id DESC
-                LIMIT 50;
-            """
+                    SELECT
+                        t.id,
+                        t.title,
+                        t.tier,
+                        t.state,
+                        t.creator_id,
+                        t.published_at,
+                        t.artwork_s3_key
+                    FROM tracks t
+                    WHERE t.state = :published
+                      AND t.tier = ANY(:tiers)
+                    ORDER BY t.published_at DESC NULLS LAST, t.id DESC
+                    LIMIT 50;
+                    """
                 ),
                 {"published": TRACK_STATE_PUBLISHED, "tiers": tiers},
             )
@@ -796,8 +803,16 @@ def list_tracks(authorization: str | None = Header(default=None)):
             .all()
         )
 
-    # Minimal response for Tier-1 browse
-    return {"items": [dict(r) for r in rows], "include_subscriber": include_subscriber}
+    items = []
+    for r in rows:
+        item = dict(r)
+        artwork_key = item.get("artwork_s3_key")
+        item["artwork_url"] = (
+            presign_get(artwork_key, expires_sec=300) if artwork_key else None
+        )
+        items.append(item)
+
+    return {"items": items, "include_subscriber": include_subscriber}
 
 
 @app.get("/tracks/{track_id}")
@@ -842,7 +857,13 @@ def get_track(track_id: int, authorization: str | None = Header(default=None)):
             ).all()
         ]
 
-    return {**dict(row), "tags": tags}
+    item = dict(row)
+    artwork_key = item.get("artwork_s3_key")
+    item["artwork_url"] = (
+        presign_get(artwork_key, expires_sec=300) if artwork_key else None
+    )
+
+    return {**item, "tags": tags}
 
 
 @app.get("/tracks/{track_id}/stream")

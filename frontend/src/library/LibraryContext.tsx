@@ -5,6 +5,7 @@ export type SavedTrack = {
     title: string;
     tier: string;
     artist?: string;
+    artwork_url?: string | null;
 };
 
 type LibraryContextType = {
