@@ -807,9 +807,14 @@ def list_tracks(authorization: str | None = Header(default=None)):
     for r in rows:
         item = dict(r)
         artwork_key = item.get("artwork_s3_key")
-        item["artwork_url"] = (
-            presign_get(artwork_key, expires_sec=300) if artwork_key else None
-        )
+
+        try:
+            item["artwork_url"] = (
+                presign_get(artwork_key, expires_sec=300) if artwork_key else None
+            )
+        except Exception as e:
+            print(f"Failed to presign artwork for track {item.get('id')}: {e}")
+            item["artwork_url"] = None
         items.append(item)
 
     return {"items": items, "include_subscriber": include_subscriber}
@@ -859,9 +864,14 @@ def get_track(track_id: int, authorization: str | None = Header(default=None)):
 
     item = dict(row)
     artwork_key = item.get("artwork_s3_key")
-    item["artwork_url"] = (
-        presign_get(artwork_key, expires_sec=300) if artwork_key else None
-    )
+
+    try:
+        item["artwork_url"] = (
+            presign_get(artwork_key, expires_sec=300) if artwork_key else None
+        )
+    except Exception as e:
+        print(f"Failed to presign artwork for track {item.get('id')}: {e}")
+        item["artwork_url"] = None
 
     return {**item, "tags": tags}
 
