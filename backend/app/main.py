@@ -929,12 +929,14 @@ def billing_checkout(
         else os.getenv("STRIPE_PRICE_YEARLY_ID")
     )
     if not price_id:
-        raise RuntimeError("Stripe price id env var missing")
+        raise HTTPException(status_code=500, detail="Stripe price id env var missing")
 
     success_url = os.getenv("STRIPE_SUCCESS_URL")
     cancel_url = os.getenv("STRIPE_CANCEL_URL")
     if not success_url or not cancel_url:
-        raise RuntimeError("STRIPE_SUCCESS_URL / STRIPE_CANCEL_URL not set")
+        raise HTTPException(
+            status_code=500, detail="STRIPE_SUCCESS_URL / STRIPE_CANCEL_URL not set"
+        )
 
     s = _stripe()
     session = s.checkout.Session.create(
