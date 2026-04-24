@@ -1,43 +1,23 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { usePlayer } from "../player/PlayerContext";
-import { useLibrary } from "../library/LibraryContext";
+import { useLibrary, type SavedTrack } from "../library/LibraryContext";
 import { useSearch } from "../search/SearchContext";
-import {
-  fetchTracks,
-  fetchTrackStreamUrl,
-  type ListenerTrack,
-} from "../api/tracks";
-
-type LibraryState =
-  | { status: "loading" }
-  | { status: "error"; detail: string }
-  | { status: "empty" }
-  | { status: "ok"; items: ListenerTrack[] };
-
-type SaveableTrack = {
-  id: number;
-  title: string;
-  tier: string;
-  artist?: string;
-  artwork_url?: string | null;
-};
+import { fetchTrackStreamUrl } from "../api/tracks";
 
 type TrackCardProps = {
-  track: ListenerTrack;
+  track: SavedTrack;
   isActive: boolean;
   isPlaying: boolean;
-  saved: boolean;
   isLoading: boolean;
   error?: string;
-  onPrimaryAction: (track: ListenerTrack) => void;
-  onToggleSave: (track: SaveableTrack) => void;
+  onPrimaryAction: (track: SavedTrack) => void;
+  onToggleSave: (track: SavedTrack) => void;
 };
 
 const TrackCard = memo(function TrackCard({
   track,
   isActive,
   isPlaying,
-  saved,
   isLoading,
   error,
   onPrimaryAction,
@@ -57,6 +37,7 @@ const TrackCard = memo(function TrackCard({
         ) : (
           <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.24),transparent_25%),linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.58))]" />
         )}
+
         <div className="pointer-events-none absolute inset-0 flex items-end justify-end gap-2 bg-black/20 p-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           <button
             type="button"
@@ -72,21 +53,10 @@ const TrackCard = memo(function TrackCard({
 
           <button
             type="button"
-            onClick={() =>
-              onToggleSave({
-                id: track.id,
-                title: track.title,
-                tier: track.tier,
-                artist: "SABLE Sessions",
-                artwork_url: track.artwork_url ?? null,
-              })
-            }
-            className={`pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full text-[11px] shadow-lg transition ${saved
-              ? "bg-orange-400/80 text-black"
-              : "bg-white/80 text-black hover:scale-105"
-              }`}
+            onClick={() => onToggleSave(track)}
+            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-orange-400/80 text-[11px] text-black shadow-lg transition hover:scale-105"
           >
-            {saved ? "✓" : "+"}
+            ✓
           </button>
         </div>
       </div>
@@ -96,9 +66,7 @@ const TrackCard = memo(function TrackCard({
           {track.title}
         </p>
         <p className="mt-1 text-sm text-white/48">
-          {track.published_at
-            ? `Released ${new Date(track.published_at).toLocaleDateString()}`
-            : "Unpublished"}
+          {track.artist || "SABLE Sessions"}
         </p>
 
         {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
@@ -112,21 +80,19 @@ function SectionRow({
   items,
   currentTrackId,
   isPlaying,
-  isSaved,
   streamLoadingId,
   streamError,
   onPrimaryAction,
   onToggleSave,
 }: {
   title: string;
-  items: ListenerTrack[];
+  items: SavedTrack[];
   currentTrackId?: number;
   isPlaying: boolean;
-  isSaved: (id: number) => boolean;
   streamLoadingId: number | null;
   streamError: Record<number, string>;
-  onPrimaryAction: (track: ListenerTrack) => void;
-  onToggleSave: (track: SaveableTrack) => void;
+  onPrimaryAction: (track: SavedTrack) => void;
+  onToggleSave: (track: SavedTrack) => void;
 }) {
   if (items.length === 0) return null;
 
@@ -136,13 +102,6 @@ function SectionRow({
         <h2 className="text-[1.8rem] font-semibold tracking-tight text-white">
           {title}
         </h2>
-
-        <button
-          type="button"
-          className="text-sm text-white/50 transition hover:text-white/80"
-        >
-          View all
-        </button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
@@ -152,7 +111,6 @@ function SectionRow({
             track={track}
             isActive={currentTrackId === track.id}
             isPlaying={isPlaying}
-            saved={isSaved(track.id)}
             isLoading={streamLoadingId === track.id}
             error={streamError[track.id]}
             onPrimaryAction={onPrimaryAction}
@@ -165,7 +123,6 @@ function SectionRow({
 }
 
 export default function Library() {
-  const [state, setState] = useState<LibraryState>({ status: "loading" });
   const [streamLoadingId, setStreamLoadingId] = useState<number | null>(null);
   const [streamError, setStreamError] = useState<Record<number, string>>({});
 
@@ -177,54 +134,22 @@ export default function Library() {
     togglePlay,
     setQueueFromTracks,
   } = usePlayer();
-  const { isSaved, toggleSavedTrack } = useLibrary();
-
-  useEffect(() => {
-    let alive = true;
-
-    async function run() {
-      setState({ status: "loading" });
-
-      try {
-        const items = await fetchTracks();
-        if (!alive) return;
-
-        if (!items || items.length === 0) {
-          setState({ status: "empty" });
-        } else {
-          setState({ status: "ok", items });
-        }
-      } catch (e: any) {
-        if (!alive) return;
-        setState({
-          status: "error",
-          detail: e?.message ?? "Unknown error",
-        });
-      }
-    }
-
-    run();
-
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const allItems = state.status === "ok" ? state.items : [];
+  const { savedTracks, toggleSavedTrack } = useLibrary();
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
 
-    return allItems.filter((item) => {
+    return savedTracks.filter((item) => {
       if (!q) return true;
-      return item.title.toLowerCase().includes(q);
+
+      return (
+        item.title.toLowerCase().includes(q) ||
+        (item.artist || "").toLowerCase().includes(q)
+      );
     });
-  }, [allItems, query]);
+  }, [savedTracks, query]);
 
-  const recentlyPublished = filteredItems.slice(0, 5);
-  const newAndNotable = filteredItems.slice(5, 10);
-
-  async function handlePlay(track: ListenerTrack) {
+  async function handlePlay(track: SavedTrack) {
     setStreamError((prev) => ({ ...prev, [track.id]: "" }));
     setStreamLoadingId(track.id);
 
@@ -233,8 +158,8 @@ export default function Library() {
         id: item.id,
         title: item.title,
         tier: item.tier,
-        artist: "SABLE Sessions",
-        artwork_url: track.artwork_url,
+        artist: item.artist || "SABLE Sessions",
+        artwork_url: item.artwork_url,
       }));
 
       const startIndex = filteredItems.findIndex((item) => item.id === track.id);
@@ -247,7 +172,7 @@ export default function Library() {
           id: track.id,
           title: track.title,
           tier: track.tier,
-          artist: "SABLE Sessions",
+          artist: track.artist || "SABLE Sessions",
           artwork_url: track.artwork_url,
         },
         url
@@ -262,7 +187,7 @@ export default function Library() {
     }
   }
 
-  async function handlePrimaryAction(track: ListenerTrack) {
+  async function handlePrimaryAction(track: SavedTrack) {
     if (currentTrack?.id === track.id) {
       await togglePlay();
       return;
@@ -279,71 +204,34 @@ export default function Library() {
             Library
           </h1>
           <p className="mt-2 text-base text-white/55">
-            Browse published tracks and stream them live from the platform.
+            Your saved tracks, ready to revisit anytime.
           </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-2.5 text-sm font-medium text-white">
-            + Create
-          </button>
-          <button className="text-sm text-white/55 transition hover:text-white/80">
-            Recents
-          </button>
         </div>
       </div>
 
-      {state.status === "loading" && (
+      {savedTracks.length === 0 && !query.trim() && (
         <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6 text-white/70">
-          Loading tracks…
-        </div>
-      )}
-
-      {state.status === "error" && (
-        <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6">
-          <p className="text-white/80">
-            <span className="text-red-400">Error</span> — {state.detail}
-          </p>
-        </div>
-      )}
-
-      {state.status === "empty" && (
-        <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6 text-white/70">
-          No tracks are available yet.
+          Your library is empty. Add tracks from Home to build it out.
         </div>
       )}
 
       {query.trim() && filteredItems.length === 0 && (
         <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6 text-white/70">
-          No matches for “{query.trim()}”.
+          No saved tracks match “{query.trim()}”.
         </div>
       )}
 
-      {state.status === "ok" && filteredItems.length > 0 && (
-        <>
-          <SectionRow
-            title="Recently published"
-            items={recentlyPublished}
-            currentTrackId={currentTrack?.id}
-            isPlaying={isPlaying}
-            isSaved={isSaved}
-            streamLoadingId={streamLoadingId}
-            streamError={streamError}
-            onPrimaryAction={handlePrimaryAction}
-            onToggleSave={toggleSavedTrack}
-          />
-          <SectionRow
-            title="New & notable"
-            items={newAndNotable}
-            currentTrackId={currentTrack?.id}
-            isPlaying={isPlaying}
-            isSaved={isSaved}
-            streamLoadingId={streamLoadingId}
-            streamError={streamError}
-            onPrimaryAction={handlePrimaryAction}
-            onToggleSave={toggleSavedTrack}
-          />
-        </>
+      {filteredItems.length > 0 && (
+        <SectionRow
+          title="Recently Added"
+          items={filteredItems}
+          currentTrackId={currentTrack?.id}
+          isPlaying={isPlaying}
+          streamLoadingId={streamLoadingId}
+          streamError={streamError}
+          onPrimaryAction={handlePrimaryAction}
+          onToggleSave={toggleSavedTrack}
+        />
       )}
     </div>
   );
